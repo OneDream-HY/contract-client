@@ -3,37 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>One Dream Community – Service Agreement (All Variants)</title>
+<title>One Dream Community – Service Agreement (Client Self-Service)</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/signature_pad/4.1.7/signature_pad.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
-<!-- jsPDF + html2canvas for PDF generation. jsPDF.html() autoPaging handles
-     long documents (38+ pages) without hitting browser canvas size limits. -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<!-- html2pdf.bundle for the older code paths if needed (also bundles its own copies) -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-<!-- Microsoft Authentication Library (MSAL) — load with multi-CDN fallback.
-     Some networks block specific CDNs; we try cdnjs first, then jsdelivr. -->
-<script>
-  window.__msalLoaded = false;
-  window.__msalLoadError = null;
-</script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/msal-browser/2.38.3/msal-browser.min.js"
-        onload="window.__msalLoaded = true;"
-        onerror="window.__msalLoadError = 'cdnjs failed';"></script>
-<script>
-  if (!window.__msalLoaded && typeof msal === 'undefined') {
-    var _msalFallback = document.createElement('script');
-    _msalFallback.src = 'https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.3/lib/msal-browser.min.js';
-    _msalFallback.onload = function() { window.__msalLoaded = true; };
-    _msalFallback.onerror = function() {
-      window.__msalLoadError = (window.__msalLoadError || '') + ', jsdelivr failed';
-    };
-    document.head.appendChild(_msalFallback);
-  }
-</script>
 <style>
   :root {
     --odc-green: #4a7c3f;
@@ -376,7 +350,26 @@
       -webkit-appearance: none; appearance: none;
       max-width: 100% !important; box-sizing: border-box !important;
     }
-    input::placeholder, textarea::placeholder { color: transparent !important; }
+    /* Hide all placeholder/example text in print + Save-as-PDF (all browsers) */
+    input::placeholder,
+    textarea::placeholder,
+    input::-webkit-input-placeholder,
+    textarea::-webkit-input-placeholder,
+    input::-moz-placeholder,
+    textarea::-moz-placeholder,
+    input:-ms-input-placeholder,
+    textarea:-ms-input-placeholder,
+    input::-ms-input-placeholder,
+    textarea::-ms-input-placeholder {
+      color: transparent !important;
+      opacity: 0 !important;
+      -webkit-text-fill-color: transparent !important;
+    }
+    /* Belt-and-suspenders: hide italic placeholder shown by .ff-inline rule above */
+    input.ff-inline:placeholder-shown {
+      color: transparent !important;
+      -webkit-text-fill-color: transparent !important;
+    }
     select { padding-right: 0 !important; }
 
     /* ── Tables: fit page width, wrap content, no horizontal overflow ── */
@@ -600,200 +593,6 @@
     text-transform: uppercase;
   }
 
-  /* ─────────────────────────────────────────────────────────
-     PDF rendering mode — applies when body has .pdf-rendering
-     class (set just before html2pdf captures the page).
-     Mirrors many @media print rules so html2canvas's capture
-     looks the same as a real print preview.
-     ───────────────────────────────────────────────────────── */
-  body.pdf-rendering {
-    background: #ffffff;
-    font-family: "Helvetica Neue", "Segoe UI", "Arial", sans-serif;
-    color: #1d2b1d;
-  }
-  body.pdf-rendering .no-print,
-  body.pdf-rendering #panel1,
-  body.pdf-rendering #panel2,
-  body.pdf-rendering .app-header,
-  body.pdf-rendering .steps-bar,
-  body.pdf-rendering #loginGate,
-  body.pdf-rendering #clientPicker,
-  body.pdf-rendering #wfSaveBtn,
-  body.pdf-rendering .apply-all-bar { display: none !important; }
-  body.pdf-rendering #panel3 { display: block !important; padding: 0 !important; }
-  body.pdf-rendering .panel { padding: 0 !important; }
-
-  /* Pin #docsContainer to A4 page width during PDF rendering so html2canvas
-     captures a rectangle that exactly matches the PDF page. */
-  body.pdf-rendering #docsContainer {
-    width: 780px !important;
-    max-width: 780px !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    background: #ffffff !important;
-    position: relative !important;
-    left: 0 !important;
-  }
-  body.pdf-rendering #docsContainer * { box-sizing: border-box !important; }
-  body.pdf-rendering #docsContainer .doc-card,
-  body.pdf-rendering #docsContainer .doc-body,
-  body.pdf-rendering #docsContainer .doc-info-box,
-  body.pdf-rendering #docsContainer .doc-note {
-    width: 100% !important; max-width: 100% !important;
-    margin-left: 0 !important; margin-right: 0 !important;
-  }
-  body.pdf-rendering #docsContainer .doc-body { padding: 8px 14px !important; }
-  body.pdf-rendering #docsContainer {
-    font-size: 10.5pt;
-    line-height: 1.45;
-  }
-  /* Also kill any flex/grid container that would push docs to the right */
-  body.pdf-rendering #panel3 {
-    width: 780px !important;
-    max-width: 780px !important;
-    margin: 0 !important;
-    padding: 0 !important;
-  }
-
-  /* Each top-level document starts on a new page */
-  body.pdf-rendering .doc-card {
-    box-shadow: none !important;
-    border: none !important;
-    page-break-before: always;
-    break-before: page;
-    margin: 0 !important; padding: 0 !important;
-    background: #fff !important;
-  }
-  body.pdf-rendering .doc-card:first-child {
-    page-break-before: auto;
-    break-before: auto;
-  }
-  body.pdf-rendering .doc-card-header {
-    background: #f5f7f1 !important; padding: 6px 10px !important;
-    page-break-after: avoid; break-after: avoid;
-    border-bottom: 1px solid #c8dfc2 !important;
-  }
-  body.pdf-rendering .doc-body { display: block !important; padding: 10px 14px !important; }
-
-  /* Section headings stay glued to their content */
-  body.pdf-rendering .doc-section-h,
-  body.pdf-rendering h1, body.pdf-rendering h2, body.pdf-rendering h3,
-  body.pdf-rendering h4, body.pdf-rendering h5, body.pdf-rendering h6,
-  body.pdf-rendering .doc-card-title,
-  body.pdf-rendering .form-section-title {
-    page-break-after: avoid !important; break-after: avoid !important;
-    page-break-inside: avoid !important; break-inside: avoid !important;
-  }
-  body.pdf-rendering .doc-section-h + *,
-  body.pdf-rendering h1 + *, body.pdf-rendering h2 + *, body.pdf-rendering h3 + *,
-  body.pdf-rendering h4 + *, body.pdf-rendering h5 + *, body.pdf-rendering h6 + * {
-    page-break-before: avoid !important; break-before: avoid !important;
-  }
-
-  /* Tables: never split rows */
-  body.pdf-rendering table, body.pdf-rendering .doc-table {
-    width: 100% !important; max-width: 100% !important;
-    table-layout: fixed !important; border-collapse: collapse !important;
-  }
-  body.pdf-rendering .doc-table th,
-  body.pdf-rendering .doc-table td,
-  body.pdf-rendering table th,
-  body.pdf-rendering table td {
-    padding: 4px 6px !important;
-    font-size: 9.5pt !important;
-    word-wrap: break-word !important;
-    overflow-wrap: break-word !important;
-    word-break: break-word !important;
-    white-space: normal !important;
-  }
-  body.pdf-rendering tr { page-break-inside: avoid; break-inside: avoid; }
-  body.pdf-rendering thead { display: table-header-group; }
-
-  /* Force-expand all details/collapsible blocks */
-  body.pdf-rendering details { display: block !important; }
-  body.pdf-rendering details summary { list-style: none; cursor: default; }
-  body.pdf-rendering details summary::-webkit-details-marker { display: none; }
-  body.pdf-rendering details > div { display: block !important; padding-left: 0 !important; }
-  body.pdf-rendering details:not([open]) > *:not(summary) { display: block !important; }
-
-  /* Inputs render as underlined text, no borders/boxes */
-  body.pdf-rendering input[type="text"],
-  body.pdf-rendering input[type="date"],
-  body.pdf-rendering input[type="email"],
-  body.pdf-rendering input[type="tel"],
-  body.pdf-rendering input[type="number"],
-  body.pdf-rendering select,
-  body.pdf-rendering textarea {
-    border: none !important;
-    border-bottom: 1px solid #1a4f8a !important;
-    background: transparent !important;
-    color: #000 !important;
-    box-shadow: none !important;
-    padding: 1px 2px !important;
-    -webkit-appearance: none; appearance: none;
-    max-width: 100% !important; box-sizing: border-box !important;
-  }
-  body.pdf-rendering input::placeholder,
-  body.pdf-rendering textarea::placeholder { color: transparent !important; }
-  body.pdf-rendering input.ff-inline {
-    border-bottom: 1.5px solid #1a4f8a !important;
-    background: transparent !important;
-  }
-
-  /* Compact signature slots */
-  body.pdf-rendering .sig-slot {
-    min-width: 140px !important; max-width: 100% !important;
-    min-height: 24px !important; height: 28px !important;
-    padding: 0 4px !important;
-    border-bottom: 1px solid #1a4f8a !important;
-    border-radius: 0 !important;
-    display: inline-block !important; vertical-align: bottom !important;
-    cursor: default !important;
-  }
-  body.pdf-rendering .sig-slot img { max-height: 24px !important; max-width: 130px !important; }
-  body.pdf-rendering .sig-slot-hint { display: none !important; }
-  body.pdf-rendering .sig-slot.applied::after { display: none !important; }
-  body.pdf-rendering .sig-slot:hover { background: transparent !important; }
-
-  /* Keep important blocks together */
-  body.pdf-rendering .doc-info-box,
-  body.pdf-rendering .doc-note,
-  body.pdf-rendering .alert,
-  body.pdf-rendering .sig-row,
-  body.pdf-rendering .acknowledgement,
-  body.pdf-rendering .form-section,
-  body.pdf-rendering fieldset {
-    page-break-inside: avoid; break-inside: avoid;
-  }
-
-  /* Body text refinements */
-  body.pdf-rendering p, body.pdf-rendering li { orphans: 3; widows: 3; font-size: 10.5pt; line-height: 1.5; }
-
-  /* Document cover — clean, branded, centered */
-  body.pdf-rendering .doc-cover {
-    padding: 14pt 0 12pt 0 !important;
-    margin-bottom: 16pt !important;
-    border-bottom: 2pt solid var(--odc-green) !important;
-    page-break-after: avoid !important; break-after: avoid !important;
-  }
-  body.pdf-rendering .doc-cover-logo img,
-  body.pdf-rendering .doc-cover-logo svg { height: 48pt !important; width: auto !important; }
-  body.pdf-rendering .doc-cover-title {
-    font-size: 17pt !important; margin-top: 9pt !important;
-    color: #122 !important; font-weight: 800 !important;
-  }
-  body.pdf-rendering .doc-cover-subtitle {
-    font-size: 10.5pt !important; margin-top: 4pt !important; color: #555 !important;
-  }
-  body.pdf-rendering .doc-cover-version {
-    font-size: 8.5pt !important; margin-top: 7pt !important;
-    color: #666 !important; letter-spacing: 0.6pt;
-  }
-
-  body.pdf-rendering img { max-width: 100% !important; height: auto !important; }
-  body.pdf-rendering .doc-card, body.pdf-rendering .doc-body,
-  body.pdf-rendering .doc-info-box { overflow: visible !important; max-width: 100% !important; }
-
   /* ── Responsive ── */
   @media (max-width: 768px) {
     /* Header */
@@ -877,234 +676,13 @@
 </head>
 <body>
 
-<!-- ═══════════════════════════════════════════════════════════
-     LOGIN GATE OVERLAY — covers the whole app until signed in
-     ═══════════════════════════════════════════════════════════ -->
-<style>
-  #loginGate {
-    position: fixed; inset: 0; z-index: 99999;
-    background: linear-gradient(135deg, #eaf2e6 0%, #f0f4ee 100%);
-    display: flex; align-items: center; justify-content: center;
-    font-family: 'Segoe UI', Arial, sans-serif;
-    padding: 20px;
-  }
-  #loginGate .gate-card {
-    background: #fff; border: 1px solid #c8dfc2;
-    border-radius: 14px; padding: 36px 40px; max-width: 460px; width: 100%;
-    box-shadow: 0 12px 40px rgba(0,0,0,0.08);
-    text-align: center;
-  }
-  #loginGate .gate-logo {
-    height: 64px; width: auto; margin-bottom: 14px;
-  }
-  #loginGate .gate-badge {
-    display: inline-block; padding: 4px 11px;
-    background: #e7f0e2; color: #2f4a2a;
-    border-radius: 999px; font-size: 11px; font-weight: 600;
-    margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.7px;
-  }
-  #loginGate h1 {
-    font-size: 22px; margin: 0 0 4px 0; color: #1a2017; font-weight: 700;
-  }
-  #loginGate .gate-sub {
-    color: #6f7a6a; font-size: 14px; margin: 0 0 24px 0; line-height: 1.5;
-  }
-  #loginGate .gate-btn {
-    background: #4a7a3c; color: #fff; border: none;
-    padding: 12px 28px; border-radius: 6px;
-    font: inherit; font-size: 15px; font-weight: 600;
-    cursor: pointer; transition: background .15s;
-  }
-  #loginGate .gate-btn:hover { background: #2f4a2a; }
-  #loginGate .gate-btn:disabled { background: #aaa; cursor: not-allowed; }
-  #loginGate .gate-btn .ms-logo {
-    display: inline-block; width: 16px; height: 16px;
-    margin-right: 8px; vertical-align: middle;
-    background:
-      linear-gradient(45deg, #f25022 0 50%, #7fba00 50% 100%) top left / 50% 50% no-repeat,
-      linear-gradient(45deg, #00a4ef 0 50%, #ffb900 50% 100%) bottom right / 50% 50% no-repeat;
-  }
-  #loginGate .gate-status {
-    margin-top: 16px; font-size: 13px; color: #828a7c;
-    min-height: 20px;
-  }
-  #loginGate .gate-status.error { color: #b85a3a; }
-  #loginGate .gate-signed-in {
-    margin-top: 12px; font-size: 13px; color: #444c40;
-  }
-  #loginGate .gate-help {
-    margin-top: 20px; padding-top: 16px; border-top: 1px solid #eee;
-    font-size: 12px; color: #828a7c; line-height: 1.6;
-  }
-</style>
-<div id="loginGate">
-  <div class="gate-card">
-    <img src="logo_300.png" alt="One Dream Community" class="gate-logo" onerror="this.style.display='none'">
-    <div class="gate-badge">Cloud · Secure Sign-in</div>
-    <h1>One Dream Community</h1>
-    <p class="gate-sub">Participant Onboarding — Service Agreement Form<br>
-      Sign in with your ODC Microsoft 365 account to continue.</p>
-    <button class="gate-btn" id="gateLoginBtn" disabled>
-      <span class="ms-logo"></span>Sign in with Microsoft 365
-    </button>
-    <div class="gate-status" id="gateStatus">Loading authentication library…</div>
-    <div class="gate-signed-in" id="gateSignedIn" style="display:none;"></div>
-    <div class="gate-help">
-      Trouble signing in? Hard-refresh the page (<strong>Cmd + Shift + R</strong>) and try again.<br>
-      Contact the admin (Hayley): y.hr3752@gmail.com
-    </div>
-  </div>
-</div>
-
-<!-- ═══════════════════════════════════════════════════════════
-     CLIENT PICKER — shown after login, lists saved forms
-     ═══════════════════════════════════════════════════════════ -->
-<style>
-  #clientPicker {
-    position: fixed; inset: 0; z-index: 99998;
-    background: linear-gradient(135deg, #eaf2e6 0%, #f0f4ee 100%);
-    display: none; align-items: flex-start; justify-content: center;
-    font-family: 'Segoe UI', Arial, sans-serif;
-    padding: 28px 20px; overflow-y: auto;
-  }
-  #clientPicker.active { display: flex; }
-  #clientPicker .picker-card {
-    background: #fff; border: 1px solid #c8dfc2;
-    border-radius: 14px; padding: 28px 32px; max-width: 760px; width: 100%;
-    box-shadow: 0 12px 40px rgba(0,0,0,0.08);
-  }
-  #clientPicker .picker-head {
-    display: flex; align-items: center; gap: 14px;
-    padding-bottom: 16px; border-bottom: 1px solid #eaf0e6;
-  }
-  #clientPicker .picker-head img { height: 48px; }
-  #clientPicker .picker-head h2 {
-    margin: 0; font-size: 1.25rem; color: #1a2017; font-weight: 700;
-  }
-  #clientPicker .picker-head small {
-    color: #828a7c; font-size: .82rem;
-  }
-  #clientPicker .picker-user {
-    margin-left: auto; font-size: .8rem; color: #5d6957;
-    text-align: right;
-  }
-  #clientPicker .picker-user button {
-    background: none; border: none; color: #a64b2a; font-size: .76rem;
-    cursor: pointer; padding: 4px 8px; margin-top: 2px;
-  }
-  #clientPicker .picker-actions {
-    display: flex; gap: 10px; margin: 18px 0;
-    flex-wrap: wrap; align-items: center;
-  }
-  #clientPicker .btn-new {
-    background: #4a7c3f; color: #fff; border: none;
-    padding: 11px 22px; border-radius: 6px;
-    font: inherit; font-size: .92rem; font-weight: 600;
-    cursor: pointer; transition: background .15s;
-  }
-  #clientPicker .btn-new:hover { background: #3a6330; }
-  #clientPicker .btn-refresh {
-    background: #fff; color: #4a7c3f;
-    border: 1.5px solid #c8dfc2; padding: 9px 16px;
-    border-radius: 6px; font: inherit; font-size: .85rem; font-weight: 600;
-    cursor: pointer; margin-left: auto;
-  }
-  #clientPicker .btn-refresh:hover { background: #f4f9ee; }
-  #clientPicker .picker-list-title {
-    font-weight: 700; color: #2f4a2a; font-size: .92rem;
-    margin: 4px 0 10px;
-  }
-  #clientPicker .picker-list {
-    border: 1px solid #eaf0e6; border-radius: 8px;
-    max-height: 50vh; overflow-y: auto;
-  }
-  #clientPicker .picker-row {
-    padding: 12px 16px; border-bottom: 1px solid #f0f4ee;
-    display: flex; align-items: center; gap: 12px;
-    cursor: pointer; transition: background .12s;
-  }
-  #clientPicker .picker-row:last-child { border-bottom: none; }
-  #clientPicker .picker-row:hover { background: #f8fbf5; }
-  #clientPicker .picker-row .row-main {
-    flex: 1; min-width: 0;
-  }
-  #clientPicker .picker-row .row-title {
-    font-weight: 600; color: #1a4f8a; font-size: .9rem;
-    word-break: break-all; line-height: 1.35;
-  }
-  #clientPicker .picker-row .row-meta {
-    font-size: .76rem; color: #828a7c; margin-top: 2px;
-  }
-  #clientPicker .picker-row .row-saved-by {
-    color: #1a5fa0; font-weight: 500;
-  }
-  #clientPicker .picker-row .row-actions {
-    display: flex; gap: 6px; flex-shrink: 0;
-  }
-  #clientPicker .picker-row .btn-open {
-    background: #4a7c3f; color: #fff; border: none;
-    padding: 6px 14px; border-radius: 5px;
-    font: inherit; font-size: .78rem; font-weight: 600; cursor: pointer;
-  }
-  #clientPicker .picker-row .btn-open:hover { background: #3a6330; }
-  #clientPicker .picker-row .btn-del {
-    background: #fff; color: #a64b2a;
-    border: 1px solid #d0a090; padding: 5px 10px;
-    border-radius: 5px; font: inherit; font-size: .76rem; cursor: pointer;
-  }
-  #clientPicker .picker-row .btn-del:hover { background: #fff3f3; }
-  #clientPicker .picker-empty {
-    padding: 26px 18px; text-align: center; color: #828a7c;
-    font-size: .87rem; line-height: 1.5;
-  }
-  #clientPicker .picker-status {
-    margin-top: 12px; padding: 10px 14px; border-radius: 6px;
-    font-size: .82rem;
-  }
-  #clientPicker .picker-status.error {
-    background: #fef3ef; border: 1px solid #d99656; color: #7a4a1a;
-  }
-  #clientPicker .picker-status.info {
-    background: #eaf3ff; border: 1px solid #6b9bd1; color: #1a4a7a;
-  }
-</style>
-<div id="clientPicker">
-  <div class="picker-card">
-    <div class="picker-head">
-      <img src="logo_300.png" alt="One Dream Community" onerror="this.style.display='none'">
-      <div>
-        <h2>Service Agreement — Choose a record</h2>
-        <small>Open a saved form or start a new one</small>
-      </div>
-      <div class="picker-user">
-        <div>Signed in as <strong id="pickerUserName">…</strong></div>
-        <button onclick="spSignOut()">Sign out</button>
-      </div>
-    </div>
-
-    <div class="picker-actions">
-      <button class="btn-new" onclick="pickerStartNew()">+ Start New Form</button>
-      <button class="btn-refresh" onclick="pickerRefresh()">🔄 Refresh</button>
-    </div>
-
-    <div class="picker-list-title">
-      Saved forms (<span id="pickerCount">…</span>)
-    </div>
-    <div id="pickerList" class="picker-list">
-      <div class="picker-empty">Loading…</div>
-    </div>
-    <div id="pickerStatus"></div>
-  </div>
-</div>
-
 <!-- ═══════════ HEADER ═══════════ -->
 <div class="app-header no-print">
   <img src="logo_300.png" alt="One Dream Community" class="logo-circle" style="background:white; padding:4px; height:44px; width:auto; border-radius:6px; object-fit:contain;" onerror="this.style.display='none'">
-  <div style="flex:1;">
+  <div>
     <h1>One Dream Community</h1>
-    <small>Participant Onboarding – Smart Form</small>
+    <small>Service Agreement – Client Self-Service Form</small>
   </div>
-  <button onclick="pickerOpen()" style="background:rgba(255,255,255,0.18); color:#fff; border:1px solid rgba(255,255,255,0.4); padding:7px 14px; border-radius:6px; font-weight:600; font-size:.85rem; cursor:pointer; transition:background .15s;" onmouseover="this.style.background='rgba(255,255,255,0.28)'" onmouseout="this.style.background='rgba(255,255,255,0.18)'">⇆ Clients</button>
 </div>
 
 <!-- ═══════════ STEPS BAR ═══════════ -->
@@ -1127,9 +705,17 @@
   <div class="row justify-content-center">
     <div class="col-lg-9">
 
-      <div class="alert no-print" style="background:var(--odc-light-green); border:1px solid var(--odc-border); border-radius:8px; padding:12px 16px; margin-bottom:12px; display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
-        <span style="flex:1; min-width:280px;"><strong>✏️ Type once, populate everywhere.</strong> Fill in the participant's details below — they will automatically appear in all onboarding documents including the full 38-page Service Agreement.</span>
-        <button type="button" onclick="clearAllAndReload(true)" title="Wipe all data and start fresh for a new participant" style="background:#fff; color:#a64b1a; border:1.5px solid #d99656; padding:7px 14px; border-radius:6px; font-size:.82rem; font-weight:600; cursor:pointer; white-space:nowrap;">🗑 Clear All Info</button>
+      <div class="alert no-print" style="background:var(--odc-light-green); border:1px solid var(--odc-border); border-radius:8px; padding:14px 18px; margin-bottom:14px;">
+        <div style="font-weight:700; color:var(--odc-dark-green); margin-bottom:6px;">👋 Welcome — here's how to complete your Service Agreement</div>
+        <ol style="margin:0 0 6px 18px; padding:0; font-size:.88rem; line-height:1.55; color:#2c3a2c;">
+          <li><strong>Step 1</strong> – Fill in your details below. Your information is saved automatically in this browser as you type.</li>
+          <li><strong>Step 2</strong> – Draw your signature once. It will be applied to every page where you need to sign.</li>
+          <li><strong>Step 3</strong> – Review the documents, then click <strong>💾 Save &amp; Send to ODC</strong> at the bottom-right to download the completed file and email it to your coordinator.</li>
+        </ol>
+        <div style="margin-top:8px; padding-top:8px; border-top:1px dashed var(--odc-border); display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+          <span style="font-size:.82rem; color:#666;">If a family member or friend is helping you, they can fill this in on your behalf.</span>
+          <button type="button" onclick="clearAllAndReload(true)" title="Clear everything and start over" style="background:#fff; color:#a64b1a; border:1.5px solid #d99656; padding:5px 12px; border-radius:6px; font-size:.78rem; font-weight:600; cursor:pointer; white-space:nowrap; margin-left:auto;">🗑 Start Over</button>
+        </div>
       </div>
 
       <!-- Personal -->
@@ -1207,15 +793,15 @@
           <div style="display:flex; gap:10px; flex-wrap:wrap;">
             <label style="flex:1; min-width:160px; display:flex; align-items:center; gap:10px; padding:12px 14px; border:2px solid #d9dfcc; border-radius:8px; cursor:pointer; background:#fafdf6;">
               <input type="radio" name="contractType" value="sydney" checked onchange="onContractChange()" style="accent-color:#4a7a3c; width:18px; height:18px;">
-              <div><strong>🏙️ Sydney</strong><br><span style="font-size:.78rem; color:#666;">NSW · 38 pages</span></div>
+              <div><strong>🏙️ Sydney</strong><br><span style="font-size:.78rem; color:#666;">NSW</span></div>
             </label>
             <label style="flex:1; min-width:160px; display:flex; align-items:center; gap:10px; padding:12px 14px; border:2px solid #d9dfcc; border-radius:8px; cursor:pointer; background:#fafdf6;">
               <input type="radio" name="contractType" value="others" onchange="onContractChange()" style="accent-color:#4a7a3c; width:18px; height:18px;">
-              <div><strong>🌏 Other States</strong><br><span style="font-size:.78rem; color:#666;">VIC·QLD·etc · 38 pages</span></div>
+              <div><strong>🌏 Other States</strong><br><span style="font-size:.78rem; color:#666;">VIC·QLD·etc</span></div>
             </label>
             <label style="flex:1; min-width:160px; display:flex; align-items:center; gap:10px; padding:12px 14px; border:2px solid #d9dfcc; border-radius:8px; cursor:pointer; background:#fafdf6;">
               <input type="radio" name="contractType" value="selfmanaged" onchange="onContractChange()" style="accent-color:#4a7a3c; width:18px; height:18px;">
-              <div><strong>🤝 Self-Managed</strong><br><span style="font-size:.78rem; color:#666;">SM · 43 pages</span></div>
+              <div><strong>🤝 Self-Managed</strong><br><span style="font-size:.78rem; color:#666;">SM</span></div>
             </label>
           </div>
         </div>
@@ -1434,15 +1020,58 @@
     </div>
     <div class="d-flex gap-2 flex-wrap">
       <button class="btn btn-odc btn-sm" onclick="applyAll()">✍️ Apply Signature to ALL Fields</button>
-      <button class="btn btn-sm" style="background:#5b3a8e; color:#fff; border:none; font-weight:600; padding:7px 14px; border-radius:6px;" onclick="emailPdf()">📧 Email PDF</button>
-      <button class="btn btn-odc btn-sm" onclick="openPrintModal()" title="Print directly, or choose 'Save as PDF' in the print dialog to download a PDF">🖨️ Print / Save as PDF</button>
+      <button class="btn btn-odc btn-sm" onclick="openPrintModal()">🖨️ Print Documents</button>
       <button class="btn btn-sm" onclick="clearAllAndReload(true)" title="Wipe all data and start fresh for a new participant" style="background:#fff; color:#a64b1a; border:1.5px solid #d99656; font-weight:600;">🗑 Clear All</button>
     </div>
   </div>
 
-<!-- Save Progress modal removed — cloud save replaces it.
-     The login gate + client picker now provide the entry path, and the
-     ☁️ Save to Cloud floating button below provides one-click saving. -->
+  <!-- ── Save / Send to ODC Modal (Client Version) ── -->
+<div id="saveBackdrop" class="no-print" style="display:none; position:fixed; inset:0; background:rgba(20,30,20,0.55); z-index:10000; align-items:center; justify-content:center; padding:20px;" onclick="if(event.target===this)closeSaveModal()">
+  <div style="background:#fff; border-radius:10px; max-width:600px; width:100%; padding:24px 26px; box-shadow:0 18px 50px rgba(0,0,0,0.25); max-height:90vh; overflow-y:auto;">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <h3 style="margin:0; font-size:1.15rem; color:#4a7a3c; font-weight:700;">💾 Save &amp; Send to ODC</h3>
+      <button onclick="closeSaveModal()" style="background:none; border:none; font-size:1.6rem; cursor:pointer; color:#888; padding:0 4px;">&times;</button>
+    </div>
+    <p style="color:#666; font-size:.87rem; margin:6px 0 12px 0;">Choose how you would like to send your completed form back to One Dream Community.</p>
+
+    <div id="sigStatusInModal" style="background:#eaf3ff; border:1px solid #6b9bd1; color:#1a4a7a; border-radius:6px; padding:10px 12px; margin-bottom:12px; font-size:.85rem;">
+      <strong>📝 Signatures captured:</strong> <span id="sigStatusCount">checking…</span>
+    </div>
+
+    <!-- ① Download JSON & email -->
+    <div style="border:2px solid #4a7a3c; border-radius:8px; padding:14px; margin-bottom:12px; background:#f3faef;">
+      <div style="font-weight:700; color:#4a7a3c; margin-bottom:6px; font-size:.98rem;">① Download as a file &amp; email to ODC <span style="font-size:.78rem; background:#4a7a3c; color:#fff; padding:2px 8px; border-radius:10px; margin-left:6px;">Recommended</span></div>
+      <p style="font-size:.82rem; color:#555; margin:0 0 10px 0;">Saves <strong>all your details and signatures</strong> in one file. Download it, then email it to your ODC coordinator as an attachment.</p>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+        <button class="btn btn-odc btn-sm" onclick="downloadJsonFile()">⬇️ Download .json file</button>
+        <a id="emailJsonLink" href="mailto:agedcare@onedreamcommunity.com.au?subject=ODC%20Service%20Agreement%20(Completed)" class="btn btn-odc-outline btn-sm" style="text-decoration:none;">✉️ Open email to ODC</a>
+      </div>
+      <p style="font-size:.75rem; color:#888; margin:8px 0 0 0;">Tip: click <strong>Download</strong> first, then click <strong>Open email</strong> and attach the file you just downloaded.</p>
+    </div>
+
+    <!-- ② Print as PDF -->
+    <div style="border:1px solid #d9dfcc; border-radius:8px; padding:14px; margin-bottom:12px; background:#fafdf6;">
+      <div style="font-weight:700; color:#4a7a3c; margin-bottom:6px; font-size:.95rem;">② Print or save as PDF</div>
+      <p style="font-size:.82rem; color:#555; margin:0 0 10px 0;">Print on paper to sign by hand, or save a PDF copy for your records. In the print dialog, choose <strong>"Save as PDF"</strong> as the destination.</p>
+      <button class="btn btn-odc-outline btn-sm" onclick="closeSaveModal(); openPrintModal();">🖨️ Open Print / PDF</button>
+    </div>
+
+    <!-- ③ Auto-save reminder -->
+    <div style="border:1px solid #d9dfcc; border-radius:8px; padding:14px; margin-bottom:12px; background:#fafdf6;">
+      <div style="font-weight:700; color:#4a7a3c; margin-bottom:6px; font-size:.95rem;">③ Auto-saved in this browser</div>
+      <p style="font-size:.82rem; color:#555; margin:0 0 10px 0;">Your progress is automatically saved as you type. You can close the tab and come back later on the same device.</p>
+      <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+        <button class="btn btn-odc-outline btn-sm" onclick="manualSave()">✓ Save Now</button>
+        <button class="btn btn-odc-outline btn-sm" onclick="if(confirm('Clear all saved progress in this browser?')) clearLocalSave()" style="color:#a64b2a; border-color:#d0a090;">🗑 Clear Saved</button>
+        <span id="lastSavedAt" style="font-size:.78rem; color:#888; margin-left:auto;"></span>
+      </div>
+    </div>
+
+    <div style="display:flex; justify-content:flex-end; margin-top:14px; padding-top:12px; border-top:1px solid #eee;">
+      <button class="btn btn-odc-outline btn-sm" onclick="closeSaveModal()">Close</button>
+    </div>
+  </div>
+</div>
 
 <!-- ── Print selection modal (hidden until Print button clicked) ── -->
   <div class="print-modal-backdrop no-print" id="printModalBackdrop" onclick="if(event.target===this)closePrintModal()">
@@ -1451,7 +1080,7 @@
         <h3 id="printModalTitle">🖨️ Print Documents</h3>
         <button class="print-modal-close" onclick="closePrintModal()" aria-label="Close">&times;</button>
       </div>
-      <p class="print-modal-sub">Click <strong>Print / Save as PDF</strong> to open the browser print dialog. In the dialog, pick <strong>"Save as PDF"</strong> as the destination if you want a PDF file, or send to a physical printer to print.</p>
+      <p class="print-modal-sub">Check which documents to include in the printout, then click <strong>Print Selected</strong>.</p>
       <div class="print-modal-list">
         <label class="print-modal-row">
           <input type="checkbox" class="docpick" data-target="doc-5" checked>
@@ -1466,7 +1095,7 @@
       </div>
       <div class="print-modal-actions">
         <button class="btn btn-odc-outline btn-sm" onclick="closePrintModal()">Cancel</button>
-        <button class="btn btn-odc btn-sm" onclick="closePrintModal();printSelected();">🖨️ Print / Save as PDF</button>
+        <button class="btn btn-odc btn-sm" onclick="closePrintModal();printSelected();">🖨️ Print Selected</button>
       </div>
     </div>
   </div>
@@ -1533,17 +1162,18 @@ function resizeBothCanvases() {
   resizeOneCanvas(document.getElementById('sigCanvasClient'), sigPadClient);
   resizeOneCanvas(document.getElementById('sigCanvasRep'),    sigPadRep);
   resizeOneCanvas(document.getElementById('sigCanvasStaff'),  sigPadStaff);
-  // After resize, the pads are cleared. If we have captured signature data
-  // (from a restore), re-paint it so the user keeps seeing their saved
-  // signatures when they switch panels.
-  try {
-    if (clientSigUrl && sigPadClient && sigPadClient.fromDataURL) sigPadClient.fromDataURL(clientSigUrl);
-    if (repSigUrl    && sigPadRep    && sigPadRep.fromDataURL)    sigPadRep.fromDataURL(repSigUrl);
-    if (staffSigUrl  && sigPadStaff  && sigPadStaff.fromDataURL)  sigPadStaff.fromDataURL(staffSigUrl);
-  } catch(e){ console.warn('sig pad re-paint after resize:', e); }
 }
 
 // ── Navigation ─────────────────────────────────────
+// Strip placeholder attributes from all inputs/textareas inside the rendered
+// Step 3 documents, so confusing example text (e.g. "e.g. 12% or TBC",
+// "Provider name") never appears on screen, in print preview, or in saved PDFs.
+// Step 1 (the form) is untouched — its placeholders still guide the client.
+function _stripDocPlaceholders() {
+  document.querySelectorAll('#panel3 input, #panel3 textarea').forEach(el => {
+    el.removeAttribute('placeholder');
+  });
+}
 function goTo(n) {
   [1,2,3].forEach(i => {
     document.getElementById('panel'+i).classList.toggle('active', i === n);
@@ -1553,7 +1183,7 @@ function goTo(n) {
     else if (i < n) tab.classList.add('done');
   });
   if (n === 2) setTimeout(resizeBothCanvases, 50);
-  if (n === 3) renderDocs();
+  if (n === 3) { renderDocs(); _stripDocPlaceholders(); }
   window.scrollTo(0,0);
 }
 
@@ -1652,11 +1282,6 @@ function _restorePrintSelection(){
   _printHiddenCards = [];
   _printOpenedDetails.forEach(d => d.removeAttribute('open'));
   _printOpenedDetails = [];
-  // Restore document title if we changed it for the print dialog filename
-  if (window.__prevDocTitle != null) {
-    try { document.title = window.__prevDocTitle; } catch(e){}
-    window.__prevDocTitle = null;
-  }
 }
 window.addEventListener('afterprint', _restorePrintSelection);
 // Also expand details when user uses Print All Documents (Ctrl+P)
@@ -1698,19 +1323,6 @@ function printSelected(){
     d.setAttribute('open','');
     _printOpenedDetails.push(d);
   });
-  // Suggest a sensible filename to the browser's print dialog (used when
-  // the user picks "Save as PDF" — browsers default the filename to
-  // document.title). We restore the original title in _restorePrintSelection.
-  try {
-    let clientName = '';
-    const nameEl = document.getElementById('f_name');
-    if (nameEl && nameEl.value) clientName = nameEl.value.trim();
-    const nameBit = clientName ? '_' + clientName.replace(/[\\/:*?"<>|#%&{}]/g, '').replace(/\s+/g, '-').slice(0, 40) : '';
-    const stamp = new Date().toISOString().slice(0, 10);
-    window.__prevDocTitle = document.title;
-    document.title = 'ODC-ServiceAgreement' + nameBit + '_' + stamp;
-  } catch(e){}
-
   // Use a timeout so layout reflows before print dialog opens
   setTimeout(() => {
     try { window.print(); }
@@ -1719,331 +1331,6 @@ function printSelected(){
     setTimeout(_restorePrintSelection, 2000);
   }, 120);
 }
-
-// ═══════════════════════════════════════════════════════════════════
-// PDF DOWNLOAD — generate a real .pdf file using html2pdf.js
-// (bundles html2canvas + jsPDF; loaded from cdnjs in <head>)
-// ═══════════════════════════════════════════════════════════════════
-// Internal helper used by both download + email. Returns { blob, filename, clientName }.
-// Strategy: scroll to top, force-open all <details>, apply a "pdf-rendering" class
-// that constrains #docsContainer to A4 width, then let html2pdf capture the
-// LIVE original element. No cloning — that was causing input values and layout
-// to get lost during off-screen rendering.
-async function _generateServiceAgreementPdf(wantBlob){
-  // Find jsPDF — UMD build exposes window.jspdf.jsPDF, older builds use window.jsPDF
-  const jsPDFClassEarly = (window.jspdf && window.jspdf.jsPDF) ? window.jspdf.jsPDF
-                       : (typeof window.jsPDF !== 'undefined') ? window.jsPDF
-                       : null;
-  if (!jsPDFClassEarly) {
-    throw new Error('PDF library (jsPDF) failed to load. Please refresh and try again.');
-  }
-
-  // Build filename
-  let clientName = '';
-  let nameBit = '';
-  try {
-    const nameEl = document.getElementById('f_name');
-    if (nameEl && nameEl.value) {
-      clientName = nameEl.value.trim();
-      nameBit = '_' + clientName.replace(/[\\/:*?"<>|#%&{}]/g, '').replace(/\s+/g, '-').slice(0, 40);
-    }
-  } catch(e){}
-  const stamp = new Date().toISOString().slice(0, 10);
-  const filename = 'ODC-ServiceAgreement' + nameBit + '_' + stamp + '.pdf';
-
-  // 1) Make sure we're on Step 3 so #docsContainer is fully rendered
-  let switchedPanel = false;
-  const panel3 = document.getElementById('panel3');
-  if (panel3 && !panel3.classList.contains('active')) {
-    if (typeof goTo === 'function') { goTo(3); switchedPanel = true; }
-  }
-
-  // 2) Force-open every <details> so the full content prints
-  const openedDetails = [];
-  document.querySelectorAll('#docsContainer details:not([open])').forEach(d => {
-    d.setAttribute('open',''); openedDetails.push(d);
-  });
-
-  // 3) Inputs need their displayed text to be in the DOM for html2canvas.
-  //    Mirror each input/select/textarea value into a data attribute and
-  //    a fallback span so the rendered text is captured properly.
-  const inputs = document.querySelectorAll('#docsContainer input, #docsContainer textarea, #docsContainer select');
-  const inputBackups = [];
-  inputs.forEach(el => {
-    if (el.type === 'button' || el.type === 'submit' || el.type === 'file') return;
-    inputBackups.push({ el, prevValueAttr: el.getAttribute('value') });
-    if (el.type === 'checkbox' || el.type === 'radio') {
-      if (el.checked) el.setAttribute('checked', 'checked');
-    } else {
-      try { el.setAttribute('value', el.value || ''); } catch(e){}
-    }
-  });
-
-  // 4) Apply PDF-rendering CSS class — body class triggers pdf-only styles
-  document.body.classList.add('pdf-rendering');
-  // Scroll to top so html2canvas starts at the right place
-  const prevScrollY = window.scrollY;
-  window.scrollTo(0, 0);
-
-  // 5) Wait for layout to settle (style changes + scroll)
-  await new Promise(r => setTimeout(r, 400));
-
-  const target = document.getElementById('docsContainer');
-
-  // Use jsPDF.html() with autoPaging:'slice'. 'text' mode caused overlapping
-  // text in nested layouts; 'slice' captures a single tall canvas then slices
-  // it into PDF pages at fixed boundaries — cleaner output for our doc style.
-  const pdf = new jsPDFClassEarly({
-    unit: 'pt',
-    format: 'a4',
-    orientation: 'portrait',
-    compress: true
-  });
-  // A4 page in points: 595 × 842. Comfortable margins:
-  const MARGIN_X = 24, MARGIN_TOP = 28, MARGIN_BOTTOM = 36;
-  const usableWidthPt = 595 - 2 * MARGIN_X;     // 547pt
-  const htmlScale = usableWidthPt / 780;        // 780 CSS px → 547 pt
-  console.log('[PDF] jsPDF.html autoPaging:slice — scale:', htmlScale.toFixed(4),
-              '· target scrollHeight:', target.scrollHeight);
-
-  try {
-    await new Promise((resolve, reject) => {
-      pdf.html(target, {
-        callback: () => resolve(),
-        margin: [MARGIN_TOP, MARGIN_X, MARGIN_BOTTOM, MARGIN_X],
-        autoPaging: 'slice',
-        x: 0,
-        y: 0,
-        width: usableWidthPt,
-        windowWidth: 780,
-        html2canvas: {
-          scale: htmlScale,
-          useCORS: true,
-          letterRendering: true,
-          logging: false,
-          backgroundColor: '#ffffff',
-          // Force html2canvas to use 780px-wide layout regardless of viewport
-          windowWidth: 780,
-          width: 780,
-          height: target.scrollHeight
-        }
-      });
-    });
-
-    if (wantBlob) {
-      const blob = pdf.output('blob');
-      return { blob, filename, clientName };
-    } else {
-      pdf.save(filename);
-      return { blob: null, filename, clientName };
-    }
-  } finally {
-    // Cleanup
-    openedDetails.forEach(d => d.removeAttribute('open'));
-    inputBackups.forEach(({ el, prevValueAttr }) => {
-      if (prevValueAttr === null) el.removeAttribute('value');
-      else el.setAttribute('value', prevValueAttr);
-    });
-    document.body.classList.remove('pdf-rendering');
-    window.scrollTo(0, prevScrollY);
-  }
-}
-
-function _showToast(html, kind){
-  const colors = {
-    info:    { bg:'#eaf3ff', border:'#6b9bd1', text:'#1a4a7a' },
-    success: { bg:'#eef9ea', border:'#4a7a3c', text:'#2f4a2a' },
-    error:   { bg:'#fef3ef', border:'#d99656', text:'#7a4a1a' },
-  };
-  const c = colors[kind] || colors.info;
-  const t = document.createElement('div');
-  t.style.cssText = 'position:fixed; top:14px; right:14px; max-width:360px; padding:12px 16px; border-radius:8px; box-shadow:0 6px 20px rgba(0,0,0,0.18); z-index:99999; font-size:.86rem; line-height:1.45; background:' + c.bg + '; border:1px solid ' + c.border + '; color:' + c.text + ';';
-  t.innerHTML = html + ' <button onclick="this.parentNode.remove()" style="float:right; background:none; border:none; cursor:pointer; font-size:1.1rem; padding:0 0 0 8px; color:inherit;">&times;</button>';
-  document.body.appendChild(t);
-  return t;
-}
-
-// downloadAsPdf — kept as a no-op alias so any legacy onclick handlers still work.
-// In production users should click "🖨️ Print / Save as PDF" instead.
-window.downloadAsPdf = function(){
-  if (typeof openPrintModal === 'function') openPrintModal();
-};
-
-// Create (or ensure) the PDFs subfolder inside Service Agreement Records/
-async function _spEnsurePdfFolder(){
-  const driveId = await _spGetDriveId();
-  const pdfPath = SP_CONFIG.spFolderPath + '/PDFs';
-  const probeUrl = 'https://graph.microsoft.com/v1.0/drives/' + driveId
-    + '/root:/' + _spEncodePath(pdfPath);
-  try { await _graph(probeUrl); return; }
-  catch(e) { if (!/Graph 404/.test(e.message)) throw e; }
-  // Create
-  const parentUrl = 'https://graph.microsoft.com/v1.0/drives/' + driveId
-    + '/root:/' + _spEncodePath(SP_CONFIG.spFolderPath) + ':/children';
-  await _graph(parentUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name: 'PDFs', folder: {}, '@microsoft.graph.conflictBehavior': 'fail' })
-  });
-}
-
-// Try to create a sharing link. Falls back through several scopes if the
-// tenant restricts certain sharing types.
-async function _spCreateShareLink(driveId, itemId){
-  const url = 'https://graph.microsoft.com/v1.0/drives/' + driveId + '/items/' + itemId + '/createLink';
-  // Order of preference: anonymous (works for external clients) →
-  // organization (any ODC member) → users (current user only)
-  const attempts = [
-    { type: 'view', scope: 'anonymous' },
-    { type: 'view', scope: 'organization' },
-    { type: 'view' }
-  ];
-  let lastErr = null;
-  for (const body of attempts) {
-    try {
-      const res = await _graph(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-      });
-      const data = await res.json();
-      if (data && data.link && data.link.webUrl) {
-        return { webUrl: data.link.webUrl, scope: body.scope || 'default' };
-      }
-    } catch(e) {
-      lastErr = e;
-      console.warn('[Email] createLink attempt failed (scope=' + body.scope + '):', e.message);
-    }
-  }
-  throw lastErr || new Error('Could not create share link');
-}
-
-window.emailPdf = async function(){
-  const toast = _showToast('📥 <strong>Generating PDF…</strong><br><small>This may take 10–30 seconds.</small>', 'info');
-  let pdfBlob = null, filename = '', clientName = '';
-
-  // Step 1: generate PDF as blob (no download yet)
-  try {
-    const result = await _generateServiceAgreementPdf(true);
-    pdfBlob = result.blob;
-    filename = result.filename;
-    clientName = result.clientName;
-    if (!pdfBlob) throw new Error('PDF generation returned no data');
-  } catch(e) {
-    console.error('[Email] PDF generation failed:', e);
-    toast.remove();
-    _showToast('✗ <strong>PDF generation failed:</strong> ' + (e.message || e), 'error');
-    return;
-  }
-
-  // Step 2: ensure signed in
-  if (!_msal || !_spCurrentAccount()) {
-    toast.innerHTML = '🔐 <strong>Sign in required</strong>…';
-    await window.spSignIn();
-    if (!_spCurrentAccount()) {
-      toast.remove();
-      _showToast('Sign-in cancelled — PDF not uploaded.', 'error');
-      return;
-    }
-  }
-
-  // Step 3: upload PDF to SharePoint → /Service Agreement Records/PDFs/
-  toast.innerHTML = '☁️ <strong>Uploading PDF to SharePoint…</strong>';
-  let uploadedItem = null;
-  try {
-    await _spEnsureBaseFolder();
-    await _spEnsurePdfFolder();
-    const driveId = await _spGetDriveId();
-
-    // PDF filename: also keyed on client name so re-emailing the same client
-    // overwrites the previous PDF (keeps the PDFs folder tidy).
-    // Strip any pre-existing date suffix from the generated filename.
-    const stableFilename = filename.replace(/_\d{4}-\d{2}-\d{2}(?:_[\d-]+)?(?=\.pdf$)/i, '');
-
-    const pdfPath = SP_CONFIG.spFolderPath + '/PDFs/' + stableFilename;
-    const uploadUrl = 'https://graph.microsoft.com/v1.0/drives/' + driveId
-      + '/root:/' + _spEncodePath(pdfPath) + ':/content';
-    const uploadRes = await _graph(uploadUrl, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/pdf' },
-      body: pdfBlob
-    });
-    uploadedItem = await uploadRes.json();
-    filename = stableFilename;
-  } catch(e) {
-    console.error('[Email] upload failed:', e);
-    toast.remove();
-    // Fall back: download the blob locally so the user can attach manually
-    try {
-      const url = URL.createObjectURL(pdfBlob);
-      const a = document.createElement('a');
-      a.href = url; a.download = filename;
-      document.body.appendChild(a); a.click();
-      setTimeout(() => { try { document.body.removeChild(a); URL.revokeObjectURL(url); } catch(e){} }, 200);
-    } catch(e2){}
-    _showToast('⚠ <strong>Upload failed</strong> — PDF downloaded locally instead. Please attach it manually.<br><small>' + (e.message || e) + '</small>', 'error');
-    return;
-  }
-
-  // Step 4: create sharing link
-  toast.innerHTML = '🔗 <strong>Creating share link…</strong>';
-  let shareUrl = null;
-  let linkScope = '';
-  try {
-    const driveId = await _spGetDriveId();
-    const { webUrl, scope } = await _spCreateShareLink(driveId, uploadedItem.id);
-    shareUrl = webUrl;
-    linkScope = scope;
-  } catch(e) {
-    console.error('[Email] share link failed:', e);
-    // Use direct SharePoint URL as a last resort (works only for ODC members)
-    shareUrl = uploadedItem.webUrl || '';
-    linkScope = 'direct';
-  }
-
-  // Step 5: open mailto: with link in body
-  let to = '';
-  try {
-    const emailEl = document.getElementById('f_email');
-    if (emailEl && emailEl.value) to = emailEl.value.trim();
-  } catch(e){}
-  const firstName = clientName ? clientName.split(' ')[0] : '';
-  const subject = 'ODC Service Agreement' + (clientName ? ' — ' + clientName : '');
-  const bodyLines = [
-    'Hi' + (firstName ? ' ' + firstName : '') + ',',
-    '',
-    'Please find your One Dream Community Service Agreement at the link below:',
-    '',
-    shareUrl,
-    '',
-    'You can view and download the PDF directly from the link — no attachment needed.',
-    '',
-    'Kind regards,',
-    'One Dream Community'
-  ];
-  const mailtoUrl = 'mailto:' + encodeURIComponent(to)
-    + '?subject=' + encodeURIComponent(subject)
-    + '&body=' + encodeURIComponent(bodyLines.join('\n'));
-
-  const a = document.createElement('a');
-  a.href = mailtoUrl; a.target = '_self';
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-
-  toast.remove();
-  const scopeNote = {
-    'anonymous': 'Anyone with the link can view (no sign-in needed)',
-    'organization': 'Only ODC members can view this link',
-    'default': 'Limited sharing — recipients may need to sign in',
-    'direct': 'Direct SharePoint URL — ODC members only (sharing API blocked by tenant settings)'
-  }[linkScope] || 'Link created';
-  const safeFilename = String(filename).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  _showToast(
-    '✓ <strong>PDF uploaded &amp; email opened.</strong><br>' +
-    '<small><strong>' + safeFilename + '</strong> saved to SharePoint.<br>' +
-    'Link in email — ' + scopeNote + '.</small>',
-    'success'
-  );
-};
 
 // printOne also opens collapsed details inside the chosen doc
 const _origPrintOne = window.printOne;
@@ -2079,7 +1366,10 @@ function onContractChange(){
 }
 
 function live() {
-  if (document.getElementById('panel3').classList.contains('active')) renderDocs();
+  if (document.getElementById('panel3').classList.contains('active')) {
+    renderDocs();
+    _stripDocPlaceholders();
+  }
 }
 
 // ── Helpers ────────────────────────────────────────
@@ -2115,7 +1405,7 @@ function sigSlot(id) {
                 :                    '[ Client sign ]';
   if (applied && url) {
     return `<span class="sig-slot applied" id="ss_${id}" data-sigtype="${type}"
-      onclick="removeSigFrom('${id}')" title="Click to remove signature">
+      onclick="removeSigFrom('${id}')" title="클릭하면 서명 제거 (Click to remove signature)">
       <img src="${url}" alt="Signature">
     </span>`;
   }
@@ -2199,7 +1489,7 @@ function applySigTo(id) {
     el.className = 'sig-slot applied';
     el.innerHTML = `<img src="${url}" alt="Signature">`;
     el.onclick = () => removeSigFrom(id);
-    el.title = 'Click to remove signature';
+    el.title = '클릭하면 서명 제거 (Click to remove signature)';
   }
   _sigChanged();
 }
@@ -2265,80 +1555,7 @@ function applyAll() {
 }
 
 // ── Render documents ───────────────────────────────
-// ════════════════════════════════════════════════════════════════
-// DOC INPUT CACHE — preserves any user-typed values inside Step 3
-// document fields (Supporter name, Funding tier, Contribution Rate,
-// etc.) across re-renders, panel switches, and SharePoint reloads.
-// Keys are stable signatures (name + position) so order shifts don't
-// scramble them.
-// ════════════════════════════════════════════════════════════════
-window.docInputCache = window.docInputCache || {};
-
-function _docCacheKeyFor(el, index){
-  const id   = el.id || '';
-  const name = el.name || '';
-  const ph   = el.placeholder || '';
-  const dataShared = el.getAttribute('data-shared') || '';
-  // Use the most stable identifier available; fall back to index
-  if (id)   return 'id:' + id;
-  if (dataShared) return 'shared:' + dataShared;
-  if (name) return 'name:' + name + '|' + index;
-  if (ph)   return 'ph:' + ph + '|' + index;
-  return 'idx:' + index;
-}
-
-function _snapshotDocInputs(){
-  // Capture current values BEFORE re-render, into docInputCache
-  document.querySelectorAll('#docsContainer input, #docsContainer select, #docsContainer textarea').forEach((el, i) => {
-    if (el.classList.contains('ff-inline')) return;     // already handled by ffCache
-    if (el.classList.contains('docpick'))   return;
-    if (el.classList.contains('extpick'))   return;
-    if (el.type === 'button' || el.type === 'submit' || el.type === 'file') return;
-    const key = _docCacheKeyFor(el, i);
-    const val = (el.type === 'checkbox' || el.type === 'radio') ? !!el.checked : (el.value || '');
-    if (val !== '' && val !== false) {
-      window.docInputCache[key] = val;
-    } else if (key in window.docInputCache && val === '') {
-      // Don't overwrite cached value with empty unless the user explicitly cleared it
-      // (we can't distinguish here; preserving the cache is safer)
-    } else {
-      window.docInputCache[key] = val;
-    }
-  });
-}
-
-function _restoreDocInputs(){
-  // After re-render, push cached values back into the freshly created inputs
-  document.querySelectorAll('#docsContainer input, #docsContainer select, #docsContainer textarea').forEach((el, i) => {
-    if (el.classList.contains('ff-inline')) return;
-    if (el.classList.contains('docpick'))   return;
-    if (el.classList.contains('extpick'))   return;
-    if (el.type === 'button' || el.type === 'submit' || el.type === 'file') return;
-    const key = _docCacheKeyFor(el, i);
-    if (key in window.docInputCache) {
-      const v = window.docInputCache[key];
-      if (el.type === 'checkbox' || el.type === 'radio') {
-        el.checked = !!v;
-      } else {
-        el.value = v;
-      }
-    }
-    // Wire a one-time listener that updates the cache on any change
-    if (!el.__cacheWired) {
-      el.__cacheWired = true;
-      const upd = () => {
-        const k = _docCacheKeyFor(el, i);
-        window.docInputCache[k] = (el.type === 'checkbox' || el.type === 'radio') ? !!el.checked : (el.value || '');
-      };
-      el.addEventListener('input', upd);
-      el.addEventListener('change', upd);
-    }
-  });
-}
-
 function renderDocs() {
-  // Snapshot any user-entered values that already exist before we rebuild
-  _snapshotDocInputs();
   ffIdx = 0;  // reset counter so ff() keys are stable across re-renders
   // Update sig status badge
   if (clientSigUrl || staffSigUrl) {
@@ -2411,57 +1628,10 @@ function renderDocs() {
           el.className = 'sig-slot applied';
           el.innerHTML = `<img src="${url}" alt="Signature">`;
           el.onclick = () => removeSigFrom(id);
-          el.title = 'Click to remove signature';
+          el.title = '클릭하면 서명 제거 (Click to remove signature)';
         }
       });
     });
-
-  // Restore any cached user-typed values into the freshly built inputs,
-  // and wire change listeners so future typing updates the cache.
-  _restoreDocInputs();
-
-  // Auto-fill Agreement Review Date as 1 year from Document Date (if empty)
-  _autoFillReviewDate();
-}
-
-// Find any "Review Date" input in the freshly rendered docs and pre-fill
-// it with (Document Date + 1 year). User can still edit it afterwards;
-// once they've touched it, the cache will hold their custom value.
-function _autoFillReviewDate(){
-  try {
-    const docDateStr = (document.getElementById('f_docDate') || {}).value;
-    if (!docDateStr) return;
-    const d = new Date(docDateStr);
-    if (isNaN(d.getTime())) return;
-    d.setFullYear(d.getFullYear() + 1);
-    // Format as dd/mm/yyyy to match the rest of the form
-    const dd = String(d.getDate()).padStart(2, '0');
-    const mm = String(d.getMonth() + 1).padStart(2, '0');
-    const yyyy = d.getFullYear();
-    const formatted = dd + '/' + mm + '/' + yyyy;
-
-    // Find Review Date input(s) by looking for an input near "Review Date" label text
-    document.querySelectorAll('#docsContainer input').forEach(inp => {
-      const key = _docCacheKeyFor(inp, 0);
-      // Don't overwrite if user already typed a custom value
-      if (key in window.docInputCache && window.docInputCache[key]) return;
-      // Identify Review Date inputs by placeholder, name, id, or nearby label text
-      const ph = (inp.placeholder || '').toLowerCase();
-      const id = (inp.id || '').toLowerCase();
-      const nm = (inp.name || '').toLowerCase();
-      const labelText = inp.parentElement ? inp.parentElement.textContent.toLowerCase() : '';
-      if (
-        ph.includes('review date') || id.includes('review') || nm.includes('review') ||
-        (labelText.includes('agreement review date') || labelText.includes('review date'))
-      ) {
-        if (!inp.value) {
-          inp.value = formatted;
-          // Mirror into the cache so the autofill survives later re-renders
-          window.docInputCache[key] = formatted;
-        }
-      }
-    });
-  } catch(e){ console.warn('[review-date] autofill failed:', e); }
 }
 
 // ════════════════════════════════════════════════
@@ -2865,8 +2035,8 @@ function doc5_Sydney(name, address, street, suburb, postcode, mobile, phone, ema
         <p>If you speak a language other than English, you have a vision or hearing impairment, or you require any special assistance in accessing this Service Agreement, please let us know and we will assist you with arranging an interpreter or other supports to access the Service Agreement.</p>
       </div>
 
-      <!-- ═══ KEY TERMS ═══ -->
-      <div class="doc-section-h">Key Terms</div>
+      <!-- ═══ KEY TERMS (Pages 1-3) ═══ -->
+      <div class="doc-section-h">Key Terms (Pages 1&#8211;3)</div>
       <table class="doc-table" style="font-size:.85rem;">
         <tr>
           <td class="lbl" style="width:35%;">Date of this Service Agreement</td>
@@ -2991,10 +2161,10 @@ function doc5_Sydney(name, address, street, suburb, postcode, mobile, phone, ema
         </tr>
       </table>
 
-      <!-- ═══ STANDARD TERMS ═══ -->
-      <div class="doc-section-h" style="margin-top:20px;">Standard Terms &#8212; <span style="font-size:.8rem;font-weight:400;color:#666;">click a section to expand</span></div>
+      <!-- ═══ STANDARD TERMS (Pages 4-17) ═══ -->
+      <div class="doc-section-h" style="margin-top:20px;">Standard Terms (Pages 4&#8211;17) &#8212; <span style="font-size:.8rem;font-weight:400;color:#666;">click a section to expand</span></div>
 
-      ${col('Part One &#8211; Rights and Responsibilities')}
+      ${col('Part One &#8211; Rights and Responsibilities (Pages 4&#8211;6)')}
         <p><strong>1. Your rights and responsibilities</strong></p>
         <p>1.1 You will receive Services from us under the terms of this Service Agreement until this Service Agreement ends under clause 14.</p>
         <p>1.2 You, and any Supporter(s) or other persons involved in your care as notified to us, can be involved in decisions relating to your Funded Aged Care Services.</p>
@@ -3026,7 +2196,7 @@ function doc5_Sydney(name, address, street, suburb, postcode, mobile, phone, ema
         <p>As a Registered Provider, we must conform with the Aged Care Quality Standards, as they relate to the Funded Aged Care Services we provide. You can find out more about the Aged Care Quality Standards by visiting the Aged Care Quality and Safety Commission&#39;s website: https://www.agedcarequality.gov.au/older-people</p>
       ${colEnd}
 
-      ${col('Part Two &#8211; Receiving Services')}
+      ${col('Part Two &#8211; Receiving Services (Pages 7&#8211;10)')}
         <p><strong>8. Available services</strong></p>
         <p>8.1 The List of available services in Schedule 4 details each service that is specified in the Aged Care Service List. The information in the List of available services in Schedule 4 is general in nature. The Services you receive will be based on your assessed needs and your Access Approval (including any approved Service Type(s). Details of the Services you will receive will be set out in your Care Plan or Goal Plan (as relevant), including a description of the Services.</p>
         <p>8.2 If you request a Service from us that is not set out in your Care Plan or Goal Plan (as relevant), or which exceeds your available funding, if we agree to provide the Service you will need to pay for it as an Additional Service.</p>
@@ -3064,7 +2234,7 @@ function doc5_Sydney(name, address, street, suburb, postcode, mobile, phone, ema
         <p>15.6 What happens when this Agreement ends? When this Service Agreement ends: (a) we will issue you a final monthly statement and invoice for Contributions and Fees; (b) you will remain responsible for paying any Contributions or Fees you owe us for Services you received from us up to and including the Exit Date; (c) if you are moving to another Registered Provider: (i) you need to let us know who the new provider is and the date you enter into a service agreement with them; (ii) we will, within 28 days of the date you notify us that you have entered into a service agreement with another Registered Provider, provide a notification to your new provider; (iii) if you have any Unspent HCP Funds: (A) we will, within 28 days of your Exit Date, issue a notice to you (or to your Legal Personal Representative, or your estate if you have died); (B) if you are moving to another Registered Provider, we will pay any Participant Portion of Unspent Funds to you within 70 days of the Exit Date; (C) if you are leaving the Support at Home Program, we will pay any Participant Portion of Unspent Funds to you or your estate, as appropriate; (D) we will return any Commonwealth Portion of Unspent HCP Funds to Services Australia.</p>
       ${colEnd}
 
-      ${col('Part Three &#8211; Financial Terms')}
+      ${col('Part Three &#8211; Financial Terms (Pages 11&#8211;14)')}
         <p><strong>16. Your funding</strong></p>
         <p>16.1 Funding amount: (a) The amount of funding the government will contribute to your Services will depend on the type of Services you receive, your financial status, your Classification, your funding level, your funding tier, any applicable supplements and the Services you receive. (b) If there are any changes to your funding amount, we will consult with you about varying this Service Agreement and your Budget to reflect your new funding amount.</p>
         <p>16.2 Notional home support accounts and transitional accounts: (a) The government will establish one or more notional home support accounts to allocate your funding. The notional home support account(s) will be credited with your applicable funding amounts and debited when we make claims for Services delivered. (b) In addition to a home support account(s), if you are a Transitioned HCP Recipient, you may also have a home care account which records the Commonwealth Portion of any Unspent HCP Funds, which may be debited for Services delivered.</p>
@@ -3093,7 +2263,7 @@ function doc5_Sydney(name, address, street, suburb, postcode, mobile, phone, ema
         <p>If any supply made by us or on our behalf under this Service Agreement or any variation to it is a taxable supply for the purposes of the GST Act, then in addition to any amount of payable to us elsewhere in this Service Agreement, we will be entitled to recover from you an additional amount on account of GST, an amount of our GST liability in respect of each supply which will be recoverable at the same time as the amount payable for any supply.</p>
       ${colEnd}
 
-      ${col('Part Four &#8211; General Terms')}
+      ${col('Part Four &#8211; General Terms (Pages 15&#8211;17)')}
         <p><strong>21. Privacy</strong></p>
         <p>21.1 We must ensure the protection of Personal Information relating to you, including as follows: (a) the Personal Information must not be used other than: (i) for a purpose connected with the delivery of a Funded Aged Care Service to you by us; or (ii) for a purpose for which the Personal Information was given by or on your behalf to us; (b) except with your consent, the Personal Information must not be disclosed to any other person other than: (i) for a purpose connected with the delivery of a Funded Aged Care Service to you by us; or (ii) for a purpose connected with the delivery of a Funded Aged Care Service to you by an Associated Provider or another Registered Provider; or (iii) for a purpose for which the Personal Information was given by or on your behalf to us; (iv) for the purpose of complying with an obligation under the Aged Care Act.</p>
         <p>21.2 Our Privacy Policy details how we handle your Personal Information. From time to time we may ask for your consent to use your Personal Information for certain purposes and/or to disclose your Personal Information to another person.</p>
@@ -3118,8 +2288,8 @@ function doc5_Sydney(name, address, street, suburb, postcode, mobile, phone, ema
         <p>24.8 Interpretation: In this Service Agreement, unless the context otherwise suggests: (a) a reference to a time in which something needs to happen is a reference to that time in the state, territory or other place where that obligation is to be performed; (b) words and expressions defined in the Aged Care Act, if not already defined in this Service Agreement have the meanings given to them in the Aged Care Act.</p>
       ${colEnd}
 
-      <!-- ═══ SIGNING PAGE ═══ -->
-      <div class="doc-section-h" style="margin-top:20px;">Signing Page</div>
+      <!-- ═══ SIGNING PAGE (Page 18) ═══ -->
+      <div class="doc-section-h" style="margin-top:20px;">Signing Page (Page 18)</div>
       <p style="font-size:.87rem;font-style:italic;">Executed as an agreement</p>
       <table class="doc-table" style="font-size:.85rem;">
         <tr style="background:#eaf2e6;">
@@ -3180,8 +2350,8 @@ function doc5_Sydney(name, address, street, suburb, postcode, mobile, phone, ema
         </tr>
       </table>
 
-      <!-- ═══ SCHEDULE 1 – DEFINITIONS ═══ -->
-      ${col('Schedule 1 &#8211; Definitions')}
+      <!-- ═══ SCHEDULE 1 – DEFINITIONS (Pages 19-24) ═══ -->
+      ${col('Schedule 1 &#8211; Definitions (Pages 19&#8211;24)')}
         <table style="width:100%;border-collapse:collapse;font-size:.83rem;">
           <tr><td style="padding:4px 8px;width:30%;font-weight:700;border-bottom:1px solid #eee;vertical-align:top;">Access Approval</td><td style="padding:4px 8px;border-bottom:1px solid #eee;">means an approval made by the System Governor under section 65 of the Aged Care Act for an individual to access Funded Aged Care Services and any approved Service Groups, Classification Types and Service Types for the individual. Your Access Approval will be set out in your notice of decision from the System Governor.</td></tr>
           <tr><td style="padding:4px 8px;font-weight:700;border-bottom:1px solid #eee;vertical-align:top;">Additional Services</td><td style="padding:4px 8px;border-bottom:1px solid #eee;">means any services you request and we agree to provide that will be paid for you from your own funds.</td></tr>
@@ -3256,7 +2426,7 @@ function doc5_Sydney(name, address, street, suburb, postcode, mobile, phone, ema
         </table>
       ${colEnd}
 
-      ${col('Schedule 2 &#8211; Statement of Rights')}
+      ${col('Schedule 2 &#8211; Statement of Rights (Pages 25&#8211;26)')}
         <p><strong>Independence, autonomy, empowerment and freedom of choice</strong></p>
         <p>1.1 An individual has a right to: (a) exercise choice and make decisions that affect the individual&#39;s life, including in relation to the following: (i) the funded aged care services the individual has been approved to access; (ii) how, when and by whom those services are delivered to the individual; (iii) the individual&#39;s financial affairs and personal possessions; and (b) be supported (if necessary) to make those decisions, and have those decisions respected; and (c) take personal risks, including in pursuit of the individual&#39;s quality of life, social participation and intimate and sexual relationships.</p>
         <p><strong>Equitable access</strong></p>
@@ -3278,7 +2448,7 @@ function doc5_Sydney(name, address, street, suburb, postcode, mobile, phone, ema
         <p>1.13 An individual has a right to access, at any time the individual chooses, a person designated by the individual, or a person designated by an appropriate authority.</p>
       ${colEnd}
 
-      ${col('Schedule 3 &#8211; Code of Conduct')}
+      ${col('Schedule 3 &#8211; Code of Conduct (Page 27)')}
         <p>When delivering funded aged care services to individuals, Registered Providers, Aged Care Workers and responsible persons of Registered Providers must:</p>
         <p>(a) act with respect for individuals&#39; rights to freedom of expression, self determination and decision making in accordance with applicable laws and conventions; and</p>
         <p>(b) act in a way that treats individuals with dignity and respect, and values their diversity; and</p>
@@ -3290,7 +2460,7 @@ function doc5_Sydney(name, address, street, suburb, postcode, mobile, phone, ema
         <p>(h) take all reasonable steps to prevent and respond to: (i) all forms of violence, discrimination, exploitation, neglect and abuse; and (ii) sexual misconduct.</p>
       ${colEnd}
 
-      ${col('Schedule 4 &#8211; List of Available Services')}
+      ${col('Schedule 4 &#8211; List of Available Services (Pages 28&#8211;29)')}
         <p><strong>Clinical Supports</strong></p>
         <ul>
           <li>Registered nurse clinical care</li>
@@ -3328,8 +2498,8 @@ function doc5_Sydney(name, address, street, suburb, postcode, mobile, phone, ema
         </ul>
       ${colEnd}
 
-      <!-- ═══ SCHEDULE 5 – PRICE LIST ═══ -->
-      <div class="doc-section-h" style="margin-top:20px;">Schedule 5 &#8211; Price List</div>
+      <!-- ═══ SCHEDULE 5 – PRICE LIST (Pages 30-32) ═══ -->
+      <div class="doc-section-h" style="margin-top:20px;">Schedule 5 &#8211; Price List (Pages 30&#8211;32)</div>
       <p style="font-size:.83rem;font-style:italic;">Prices current at date of this Service Agreement (V1.4 JAN 2026). Prices may be updated annually on or around 1 July each year.</p>
 
       <p style="font-size:.85rem;font-weight:700;color:var(--odc-green);margin-top:10px;">Clinical Nursing Services</p>
@@ -3446,8 +2616,8 @@ function doc5_Sydney(name, address, street, suburb, postcode, mobile, phone, ema
         </table>
       </div>
 
-      <!-- ═══ SCHEDULE 6 – COMPLAINTS ═══ -->
-      ${col('Schedule 6 &#8211; Complaints and Feedback')}
+      <!-- ═══ SCHEDULE 6 – COMPLAINTS (Page 33) ═══ -->
+      ${col('Schedule 6 &#8211; Complaints and Feedback (Page 33)')}
         <p><strong>Our complaints and feedback processes</strong></p>
         <p>If you would like to give feedback or make a complaint, you can speak to any of our Aged Care Workers or use the methods below:</p>
         <ul>
@@ -3481,8 +2651,8 @@ function doc5_Sydney(name, address, street, suburb, postcode, mobile, phone, ema
         </ul>
       ${colEnd}
 
-      <!-- ═══ SCHEDULE 7 – DIRECT DEBIT ═══ -->
-      <div class="doc-section-h" style="margin-top:20px;">Schedule 7 &#8211; Direct Debit Service Agreement and Form</div>
+      <!-- ═══ SCHEDULE 7 – DIRECT DEBIT (Pages 34-37) ═══ -->
+      <div class="doc-section-h" style="margin-top:20px;">Schedule 7 &#8211; Direct Debit Service Agreement and Form (Pages 34&#8211;37)</div>
       <div style="font-size:.85rem;line-height:1.65;border:1px solid var(--odc-border);border-radius:6px;padding:14px 16px;margin-bottom:12px;background:#f9fdf8;">
         <p><strong>Request and Authority to Debit</strong></p>
         <p>Your surname: ${ff(ddSurname)}<br>Your given names: ${ff(ddGiven)}</p>
@@ -3548,7 +2718,7 @@ function doc5_Sydney(name, address, street, suburb, postcode, mobile, phone, ema
         </tr>
       </table>
 
-      ${col('Direct Debit Service Agreement')}
+      ${col('Direct Debit Service Agreement (Pages 36&#8211;37)')}
         <p>This is your Direct Debit Service Agreement with us. It explains what your and our obligations are when undertaking a direct debit arrangement and forms part of the terms and conditions of your Direct Debit Request.</p>
         <p><strong>Debiting your account:</strong> By signing the Direct Debit Request, you request and authorise us to arrange for funds to be debited from your account. You should refer to the Direct Debit Request, the Service Agreement and this Direct Debit Service Agreement for the terms of the arrangement between us and you. We will only arrange for funds to be debited from your account as authorised in the Direct Debit Request. The payment will be deducted from your nominated account on the payment due date. If your payment due date falls on a non-banking day, it will be processed on the next banking day. If you are unsure when a debit has been or will be processed, ask your financial institution.</p>
         <p><strong>Amendments by us:</strong> We may amend this Direct Debit Service Agreement by giving you at least 14 days notice.</p>
@@ -3572,7 +2742,7 @@ function doc5_Sydney(name, address, street, suburb, postcode, mobile, phone, ema
         </ul>
       ${colEnd}
 
-      ${col('Schedule 8 &#8211; Access Approval')}
+      ${col('Schedule 8 &#8211; Access Approval (Page 38)')}
         <p><em>To be attached (but not for Transitioned HCP Recipients) if it is available.</em></p>
         <p>Attach the participant&#39;s Access Approval document from the System Governor here when available.</p>
       ${colEnd}
@@ -3622,8 +2792,8 @@ function doc5_Others(name, address, street, suburb, postcode, mobile, phone, ema
         <p>If you speak a language other than English, you have a vision or hearing impairment, or you require any special assistance in accessing this Service Agreement, please let us know and we will assist you with arranging an interpreter or other supports to access the Service Agreement.</p>
       </div>
 
-      <!-- ═══ KEY TERMS ═══ -->
-      <div class="doc-section-h">Key Terms</div>
+      <!-- ═══ KEY TERMS (Pages 1-3) ═══ -->
+      <div class="doc-section-h">Key Terms (Pages 1&#8211;3)</div>
       <table class="doc-table" style="font-size:.85rem;">
         <tr>
           <td class="lbl" style="width:35%;">Date of this Service Agreement</td>
@@ -3748,10 +2918,10 @@ function doc5_Others(name, address, street, suburb, postcode, mobile, phone, ema
         </tr>
       </table>
 
-      <!-- ═══ STANDARD TERMS ═══ -->
-      <div class="doc-section-h" style="margin-top:20px;">Standard Terms &#8212; <span style="font-size:.8rem;font-weight:400;color:#666;">click a section to expand</span></div>
+      <!-- ═══ STANDARD TERMS (Pages 4-17) ═══ -->
+      <div class="doc-section-h" style="margin-top:20px;">Standard Terms (Pages 4&#8211;17) &#8212; <span style="font-size:.8rem;font-weight:400;color:#666;">click a section to expand</span></div>
 
-      ${col('Part One &#8211; Rights and Responsibilities')}
+      ${col('Part One &#8211; Rights and Responsibilities (Pages 4&#8211;6)')}
         <p><strong>1. Your rights and responsibilities</strong></p>
         <p>1.1 You will receive Services from us under the terms of this Service Agreement until this Service Agreement ends under clause 14.</p>
         <p>1.2 You, and any Supporter(s) or other persons involved in your care as notified to us, can be involved in decisions relating to your Funded Aged Care Services.</p>
@@ -3783,7 +2953,7 @@ function doc5_Others(name, address, street, suburb, postcode, mobile, phone, ema
         <p>As a Registered Provider, we must conform with the Aged Care Quality Standards, as they relate to the Funded Aged Care Services we provide. You can find out more about the Aged Care Quality Standards by visiting the Aged Care Quality and Safety Commission&#39;s website: https://www.agedcarequality.gov.au/older-people</p>
       ${colEnd}
 
-      ${col('Part Two &#8211; Receiving Services')}
+      ${col('Part Two &#8211; Receiving Services (Pages 7&#8211;10)')}
         <p><strong>8. Available services</strong></p>
         <p>8.1 The List of available services in Schedule 4 details each service that is specified in the Aged Care Service List. The information in the List of available services in Schedule 4 is general in nature. The Services you receive will be based on your assessed needs and your Access Approval (including any approved Service Type(s). Details of the Services you will receive will be set out in your Care Plan or Goal Plan (as relevant), including a description of the Services.</p>
         <p>8.2 If you request a Service from us that is not set out in your Care Plan or Goal Plan (as relevant), or which exceeds your available funding, if we agree to provide the Service you will need to pay for it as an Additional Service.</p>
@@ -3821,7 +2991,7 @@ function doc5_Others(name, address, street, suburb, postcode, mobile, phone, ema
         <p>15.6 What happens when this Agreement ends? When this Service Agreement ends: (a) we will issue you a final monthly statement and invoice for Contributions and Fees; (b) you will remain responsible for paying any Contributions or Fees you owe us for Services you received from us up to and including the Exit Date; (c) if you are moving to another Registered Provider: (i) you need to let us know who the new provider is and the date you enter into a service agreement with them; (ii) we will, within 28 days of the date you notify us that you have entered into a service agreement with another Registered Provider, provide a notification to your new provider; (iii) if you have any Unspent HCP Funds: (A) we will, within 28 days of your Exit Date, issue a notice to you (or to your Legal Personal Representative, or your estate if you have died); (B) if you are moving to another Registered Provider, we will pay any Participant Portion of Unspent Funds to you within 70 days of the Exit Date; (C) if you are leaving the Support at Home Program, we will pay any Participant Portion of Unspent Funds to you or your estate, as appropriate; (D) we will return any Commonwealth Portion of Unspent HCP Funds to Services Australia.</p>
       ${colEnd}
 
-      ${col('Part Three &#8211; Financial Terms')}
+      ${col('Part Three &#8211; Financial Terms (Pages 11&#8211;14)')}
         <p><strong>16. Your funding</strong></p>
         <p>16.1 Funding amount: (a) The amount of funding the government will contribute to your Services will depend on the type of Services you receive, your financial status, your Classification, your funding level, your funding tier, any applicable supplements and the Services you receive. (b) If there are any changes to your funding amount, we will consult with you about varying this Service Agreement and your Budget to reflect your new funding amount.</p>
         <p>16.2 Notional home support accounts and transitional accounts: (a) The government will establish one or more notional home support accounts to allocate your funding. The notional home support account(s) will be credited with your applicable funding amounts and debited when we make claims for Services delivered. (b) In addition to a home support account(s), if you are a Transitioned HCP Recipient, you may also have a home care account which records the Commonwealth Portion of any Unspent HCP Funds, which may be debited for Services delivered.</p>
@@ -3850,7 +3020,7 @@ function doc5_Others(name, address, street, suburb, postcode, mobile, phone, ema
         <p>If any supply made by us or on our behalf under this Service Agreement or any variation to it is a taxable supply for the purposes of the GST Act, then in addition to any amount of payable to us elsewhere in this Service Agreement, we will be entitled to recover from you an additional amount on account of GST, an amount of our GST liability in respect of each supply which will be recoverable at the same time as the amount payable for any supply.</p>
       ${colEnd}
 
-      ${col('Part Four &#8211; General Terms')}
+      ${col('Part Four &#8211; General Terms (Pages 15&#8211;17)')}
         <p><strong>21. Privacy</strong></p>
         <p>21.1 We must ensure the protection of Personal Information relating to you, including as follows: (a) the Personal Information must not be used other than: (i) for a purpose connected with the delivery of a Funded Aged Care Service to you by us; or (ii) for a purpose for which the Personal Information was given by or on your behalf to us; (b) except with your consent, the Personal Information must not be disclosed to any other person other than: (i) for a purpose connected with the delivery of a Funded Aged Care Service to you by us; or (ii) for a purpose connected with the delivery of a Funded Aged Care Service to you by an Associated Provider or another Registered Provider; or (iii) for a purpose for which the Personal Information was given by or on your behalf to us; (iv) for the purpose of complying with an obligation under the Aged Care Act.</p>
         <p>21.2 Our Privacy Policy details how we handle your Personal Information. From time to time we may ask for your consent to use your Personal Information for certain purposes and/or to disclose your Personal Information to another person.</p>
@@ -3875,8 +3045,8 @@ function doc5_Others(name, address, street, suburb, postcode, mobile, phone, ema
         <p>24.8 Interpretation: In this Service Agreement, unless the context otherwise suggests: (a) a reference to a time in which something needs to happen is a reference to that time in the state, territory or other place where that obligation is to be performed; (b) words and expressions defined in the Aged Care Act, if not already defined in this Service Agreement have the meanings given to them in the Aged Care Act.</p>
       ${colEnd}
 
-      <!-- ═══ SIGNING PAGE ═══ -->
-      <div class="doc-section-h" style="margin-top:20px;">Signing Page</div>
+      <!-- ═══ SIGNING PAGE (Page 18) ═══ -->
+      <div class="doc-section-h" style="margin-top:20px;">Signing Page (Page 18)</div>
       <p style="font-size:.87rem;font-style:italic;">Executed as an agreement</p>
       <table class="doc-table" style="font-size:.85rem;">
         <tr style="background:#eaf2e6;">
@@ -3937,8 +3107,8 @@ function doc5_Others(name, address, street, suburb, postcode, mobile, phone, ema
         </tr>
       </table>
 
-      <!-- ═══ SCHEDULE 1 – DEFINITIONS ═══ -->
-      ${col('Schedule 1 &#8211; Definitions')}
+      <!-- ═══ SCHEDULE 1 – DEFINITIONS (Pages 19-24) ═══ -->
+      ${col('Schedule 1 &#8211; Definitions (Pages 19&#8211;24)')}
         <table style="width:100%;border-collapse:collapse;font-size:.83rem;">
           <tr><td style="padding:4px 8px;width:30%;font-weight:700;border-bottom:1px solid #eee;vertical-align:top;">Access Approval</td><td style="padding:4px 8px;border-bottom:1px solid #eee;">means an approval made by the System Governor under section 65 of the Aged Care Act for an individual to access Funded Aged Care Services and any approved Service Groups, Classification Types and Service Types for the individual. Your Access Approval will be set out in your notice of decision from the System Governor.</td></tr>
           <tr><td style="padding:4px 8px;font-weight:700;border-bottom:1px solid #eee;vertical-align:top;">Additional Services</td><td style="padding:4px 8px;border-bottom:1px solid #eee;">means any services you request and we agree to provide that will be paid for you from your own funds.</td></tr>
@@ -4013,7 +3183,7 @@ function doc5_Others(name, address, street, suburb, postcode, mobile, phone, ema
         </table>
       ${colEnd}
 
-      ${col('Schedule 2 &#8211; Statement of Rights')}
+      ${col('Schedule 2 &#8211; Statement of Rights (Pages 25&#8211;26)')}
         <p><strong>Independence, autonomy, empowerment and freedom of choice</strong></p>
         <p>1.1 An individual has a right to: (a) exercise choice and make decisions that affect the individual&#39;s life, including in relation to the following: (i) the funded aged care services the individual has been approved to access; (ii) how, when and by whom those services are delivered to the individual; (iii) the individual&#39;s financial affairs and personal possessions; and (b) be supported (if necessary) to make those decisions, and have those decisions respected; and (c) take personal risks, including in pursuit of the individual&#39;s quality of life, social participation and intimate and sexual relationships.</p>
         <p><strong>Equitable access</strong></p>
@@ -4035,7 +3205,7 @@ function doc5_Others(name, address, street, suburb, postcode, mobile, phone, ema
         <p>1.13 An individual has a right to access, at any time the individual chooses, a person designated by the individual, or a person designated by an appropriate authority.</p>
       ${colEnd}
 
-      ${col('Schedule 3 &#8211; Code of Conduct')}
+      ${col('Schedule 3 &#8211; Code of Conduct (Page 27)')}
         <p>When delivering funded aged care services to individuals, Registered Providers, Aged Care Workers and responsible persons of Registered Providers must:</p>
         <p>(a) act with respect for individuals&#39; rights to freedom of expression, self determination and decision making in accordance with applicable laws and conventions; and</p>
         <p>(b) act in a way that treats individuals with dignity and respect, and values their diversity; and</p>
@@ -4047,7 +3217,7 @@ function doc5_Others(name, address, street, suburb, postcode, mobile, phone, ema
         <p>(h) take all reasonable steps to prevent and respond to: (i) all forms of violence, discrimination, exploitation, neglect and abuse; and (ii) sexual misconduct.</p>
       ${colEnd}
 
-      ${col('Schedule 4 &#8211; List of Available Services')}
+      ${col('Schedule 4 &#8211; List of Available Services (Pages 28&#8211;29)')}
         <p><strong>Clinical Supports</strong></p>
         <ul>
           <li>Registered nurse clinical care</li>
@@ -4085,8 +3255,8 @@ function doc5_Others(name, address, street, suburb, postcode, mobile, phone, ema
         </ul>
       ${colEnd}
 
-      <!-- ═══ SCHEDULE 5 – PRICE LIST ═══ -->
-      <div class="doc-section-h" style="margin-top:20px;">Schedule 5 &#8211; Price List</div>
+      <!-- ═══ SCHEDULE 5 – PRICE LIST (Pages 30-32) ═══ -->
+      <div class="doc-section-h" style="margin-top:20px;">Schedule 5 &#8211; Price List (Pages 30&#8211;32)</div>
       <p style="font-size:.83rem;font-style:italic;">Prices current at date of this Service Agreement (V1.4 JAN 2026). Prices may be updated annually on or around 1 July each year.</p>
 
       <p style="font-size:.85rem;font-weight:700;color:var(--odc-green);margin-top:10px;">Clinical Nursing Services</p>
@@ -4203,8 +3373,8 @@ function doc5_Others(name, address, street, suburb, postcode, mobile, phone, ema
         </table>
       </div>
 
-      <!-- ═══ SCHEDULE 6 – COMPLAINTS ═══ -->
-      ${col('Schedule 6 &#8211; Complaints and Feedback')}
+      <!-- ═══ SCHEDULE 6 – COMPLAINTS (Page 33) ═══ -->
+      ${col('Schedule 6 &#8211; Complaints and Feedback (Page 33)')}
         <p><strong>Our complaints and feedback processes</strong></p>
         <p>If you would like to give feedback or make a complaint, you can speak to any of our Aged Care Workers or use the methods below:</p>
         <ul>
@@ -4238,8 +3408,8 @@ function doc5_Others(name, address, street, suburb, postcode, mobile, phone, ema
         </ul>
       ${colEnd}
 
-      <!-- ═══ SCHEDULE 7 – DIRECT DEBIT ═══ -->
-      <div class="doc-section-h" style="margin-top:20px;">Schedule 7 &#8211; Direct Debit Service Agreement and Form</div>
+      <!-- ═══ SCHEDULE 7 – DIRECT DEBIT (Pages 34-37) ═══ -->
+      <div class="doc-section-h" style="margin-top:20px;">Schedule 7 &#8211; Direct Debit Service Agreement and Form (Pages 34&#8211;37)</div>
       <div style="font-size:.85rem;line-height:1.65;border:1px solid var(--odc-border);border-radius:6px;padding:14px 16px;margin-bottom:12px;background:#f9fdf8;">
         <p><strong>Request and Authority to Debit</strong></p>
         <p>Your surname: ${ff(ddSurname)}<br>Your given names: ${ff(ddGiven)}</p>
@@ -4305,7 +3475,7 @@ function doc5_Others(name, address, street, suburb, postcode, mobile, phone, ema
         </tr>
       </table>
 
-      ${col('Direct Debit Service Agreement')}
+      ${col('Direct Debit Service Agreement (Pages 36&#8211;37)')}
         <p>This is your Direct Debit Service Agreement with us. It explains what your and our obligations are when undertaking a direct debit arrangement and forms part of the terms and conditions of your Direct Debit Request.</p>
         <p><strong>Debiting your account:</strong> By signing the Direct Debit Request, you request and authorise us to arrange for funds to be debited from your account. You should refer to the Direct Debit Request, the Service Agreement and this Direct Debit Service Agreement for the terms of the arrangement between us and you. We will only arrange for funds to be debited from your account as authorised in the Direct Debit Request. The payment will be deducted from your nominated account on the payment due date. If your payment due date falls on a non-banking day, it will be processed on the next banking day. If you are unsure when a debit has been or will be processed, ask your financial institution.</p>
         <p><strong>Amendments by us:</strong> We may amend this Direct Debit Service Agreement by giving you at least 14 days notice.</p>
@@ -4329,7 +3499,7 @@ function doc5_Others(name, address, street, suburb, postcode, mobile, phone, ema
         </ul>
       ${colEnd}
 
-      ${col('Schedule 8 &#8211; Access Approval')}
+      ${col('Schedule 8 &#8211; Access Approval (Page 38)')}
         <p><em>To be attached (but not for Transitioned HCP Recipients) if it is available.</em></p>
         <p>Attach the participant&#39;s Access Approval document from the System Governor here when available.</p>
       ${colEnd}
@@ -4379,8 +3549,8 @@ function doc5_SelfManaged(name, address, street, suburb, postcode, mobile, phone
         <p>If you speak a language other than English, you have a vision or hearing impairment, or you require any special assistance in accessing this Service Agreement, please let us know and we will assist you with arranging an interpreter or other supports to access the Service Agreement.</p>
       </div>
 
-      <!-- ═══ KEY TERMS ═══ -->
-      <div class="doc-section-h">Key Terms</div>
+      <!-- ═══ KEY TERMS (Pages 1-3) ═══ -->
+      <div class="doc-section-h">Key Terms (Pages 1&#8211;3)</div>
       <table class="doc-table" style="font-size:.85rem;">
         <tr>
           <td class="lbl" style="width:35%;">Date of this Service Agreement</td>
@@ -4505,10 +3675,10 @@ function doc5_SelfManaged(name, address, street, suburb, postcode, mobile, phone
         </tr>
       </table>
 
-      <!-- ═══ STANDARD TERMS ═══ -->
-      <div class="doc-section-h" style="margin-top:20px;">Standard Terms &#8212; <span style="font-size:.8rem;font-weight:400;color:#666;">click a section to expand</span></div>
+      <!-- ═══ STANDARD TERMS (Pages 4-19) ═══ -->
+      <div class="doc-section-h" style="margin-top:20px;">Standard Terms (Pages 4&#8211;19) &#8212; <span style="font-size:.8rem;font-weight:400;color:#666;">click a section to expand</span></div>
 
-      ${col('Part One &#8211; Self-management under Support at Home')}
+      ${col('Part One &#8211; Self-management under Support at Home (Pages 4&#8211;5)')}
         <p><strong>1. Self-management</strong></p>
         <p>1.1 Self-management means you have a more active role in managing the care and services you receive under Support at Home, including choosing and coordinating Services in line with your assessed needs and Budget, choosing your own Associated Providers (subject to the terms of this Agreement), scheduling Services and managing your Budget.</p>
         <p>1.2 Self-management does not mean that you are solely responsible for your Support at Home Services. As a Registered Provider, we retain an important role in overseeing the delivery of Services, managing your funding and ensuring all relevant legal requirements are met. We are also responsible for providing Care Management, which is a required service for all recipients of Support at Home services, including those who are self-managing.</p>
@@ -4521,7 +3691,7 @@ function doc5_SelfManaged(name, address, street, suburb, postcode, mobile, phone
         <p>2.6 If you or we have any concerns about your capacity or suitability to meet Your Self-management Responsibilities, we will consult with you about what actions may be necessary to ensure your Services are delivered safely and in accordance with the relevant legal requirements. This may include requesting assessment of your care needs or capacity and suitability to meet Your Self-Management Responsibilities and consulting with you about ceasing self-management and moving onto a fully managed arrangement.</p>
       ${colEnd}
 
-      ${col('Part Two &#8211; Rights and Responsibilities')}
+      ${col('Part Two &#8211; Rights and Responsibilities (Pages 6&#8211;7)')}
         <p><strong>1. Your rights and responsibilities</strong></p>
         <p>1.1 You will receive Services from us under the terms of this Service Agreement until this Service Agreement ends under clause 14.</p>
         <p>1.2 You, and any Supporter(s) or other persons involved in your care as notified to us, can be involved in decisions relating to your Funded Aged Care Services.</p>
@@ -4553,7 +3723,7 @@ function doc5_SelfManaged(name, address, street, suburb, postcode, mobile, phone
         <p>As a Registered Provider, we must conform with the Aged Care Quality Standards, as they relate to the Funded Aged Care Services we provide. You can find out more about the Aged Care Quality Standards by visiting the Aged Care Quality and Safety Commission&#39;s website: https://www.agedcarequality.gov.au/older-people</p>
       ${colEnd}
 
-      ${col('Part Two &#8211; Receiving Services')}
+      ${col('Part Two &#8211; Receiving Services (Pages 7&#8211;10)')}
         <p><strong>8. Available services</strong></p>
         <p>8.1 The List of available services in Schedule 5 details each service that is specified in the Aged Care Service List. The information in the List of available services in Schedule 5 is general in nature. The Services you receive will be based on your assessed needs and your Access Approval (including any approved Service Type(s). Details of the Services you will receive will be set out in your Care Plan or Goal Plan (as relevant), including a description of the Services.</p>
         <p>8.2 If you request a Service from us that is not set out in your Care Plan or Goal Plan (as relevant), or which exceeds your available funding, if we agree to provide the Service you will need to pay for it as an Additional Service.</p>
@@ -4591,7 +3761,7 @@ function doc5_SelfManaged(name, address, street, suburb, postcode, mobile, phone
         <p>15.6 What happens when this Agreement ends? When this Service Agreement ends: (a) we will issue you a final monthly statement and invoice for Contributions and Fees; (b) you will remain responsible for paying any Contributions or Fees you owe us for Services you received from us up to and including the Exit Date; (c) if you are moving to another Registered Provider: (i) you need to let us know who the new provider is and the date you enter into a service agreement with them; (ii) we will, within 28 days of the date you notify us that you have entered into a service agreement with another Registered Provider, provide a notification to your new provider; (iii) if you have any Unspent HCP Funds: (A) we will, within 28 days of your Exit Date, issue a notice to you (or to your Legal Personal Representative, or your estate if you have died); (B) if you are moving to another Registered Provider, we will pay any Participant Portion of Unspent Funds to you within 70 days of the Exit Date; (C) if you are leaving the Support at Home Program, we will pay any Participant Portion of Unspent Funds to you or your estate, as appropriate; (D) we will return any Commonwealth Portion of Unspent HCP Funds to Services Australia.</p>
       ${colEnd}
 
-      ${col('Part Three &#8211; Financial Terms')}
+      ${col('Part Three &#8211; Financial Terms (Pages 11&#8211;14)')}
         <p><strong>16. Your funding</strong></p>
         <p>16.1 Funding amount: (a) The amount of funding the government will contribute to your Services will depend on the type of Services you receive, your financial status, your Classification, your funding level, your funding tier, any applicable supplements and the Services you receive. (b) If there are any changes to your funding amount, we will consult with you about varying this Service Agreement and your Budget to reflect your new funding amount.</p>
         <p>16.2 Notional home support accounts and transitional accounts: (a) The government will establish one or more notional home support accounts to allocate your funding. The notional home support account(s) will be credited with your applicable funding amounts and debited when we make claims for Services delivered. (b) In addition to a home support account(s), if you are a Transitioned HCP Recipient, you may also have a home care account which records the Commonwealth Portion of any Unspent HCP Funds, which may be debited for Services delivered.</p>
@@ -4620,7 +3790,7 @@ function doc5_SelfManaged(name, address, street, suburb, postcode, mobile, phone
         <p>If any supply made by us or on our behalf under this Service Agreement or any variation to it is a taxable supply for the purposes of the GST Act, then in addition to any amount of payable to us elsewhere in this Service Agreement, we will be entitled to recover from you an additional amount on account of GST, an amount of our GST liability in respect of each supply which will be recoverable at the same time as the amount payable for any supply.</p>
       ${colEnd}
 
-      ${col('Part Four &#8211; General Terms')}
+      ${col('Part Four &#8211; General Terms (Pages 15&#8211;17)')}
         <p><strong>21. Privacy</strong></p>
         <p>21.1 We must ensure the protection of Personal Information relating to you, including as follows: (a) the Personal Information must not be used other than: (i) for a purpose connected with the delivery of a Funded Aged Care Service to you by us; or (ii) for a purpose for which the Personal Information was given by or on your behalf to us; (b) except with your consent, the Personal Information must not be disclosed to any other person other than: (i) for a purpose connected with the delivery of a Funded Aged Care Service to you by us; or (ii) for a purpose connected with the delivery of a Funded Aged Care Service to you by an Associated Provider or another Registered Provider; or (iii) for a purpose for which the Personal Information was given by or on your behalf to us; (iv) for the purpose of complying with an obligation under the Aged Care Act.</p>
         <p>21.2 Our Privacy Policy details how we handle your Personal Information. From time to time we may ask for your consent to use your Personal Information for certain purposes and/or to disclose your Personal Information to another person.</p>
@@ -4645,8 +3815,8 @@ function doc5_SelfManaged(name, address, street, suburb, postcode, mobile, phone
         <p>24.8 Interpretation: In this Service Agreement, unless the context otherwise suggests: (a) a reference to a time in which something needs to happen is a reference to that time in the state, territory or other place where that obligation is to be performed; (b) words and expressions defined in the Aged Care Act, if not already defined in this Service Agreement have the meanings given to them in the Aged Care Act.</p>
       ${colEnd}
 
-      <!-- ═══ SIGNING PAGE ═══ -->
-      <div class="doc-section-h" style="margin-top:20px;">Signing Page</div>
+      <!-- ═══ SIGNING PAGE (Page 18) ═══ -->
+      <div class="doc-section-h" style="margin-top:20px;">Signing Page (Page 18)</div>
       <p style="font-size:.87rem;font-style:italic;">Executed as an agreement</p>
       <table class="doc-table" style="font-size:.85rem;">
         <tr style="background:#eaf2e6;">
@@ -4707,8 +3877,8 @@ function doc5_SelfManaged(name, address, street, suburb, postcode, mobile, phone
         </tr>
       </table>
 
-      <!-- ═══ SCHEDULE 1 – DEFINITIONS ═══ -->
-      ${col('Schedule 1 &#8211; Definitions')}
+      <!-- ═══ SCHEDULE 1 – DEFINITIONS (Pages 19-24) ═══ -->
+      ${col('Schedule 1 &#8211; Definitions (Pages 19&#8211;24)')}
         <table style="width:100%;border-collapse:collapse;font-size:.83rem;">
           <tr><td style="padding:4px 8px;width:30%;font-weight:700;border-bottom:1px solid #eee;vertical-align:top;">Access Approval</td><td style="padding:4px 8px;border-bottom:1px solid #eee;">means an approval made by the System Governor under section 65 of the Aged Care Act for an individual to access Funded Aged Care Services and any approved Service Groups, Classification Types and Service Types for the individual. Your Access Approval will be set out in your notice of decision from the System Governor.</td></tr>
           <tr><td style="padding:4px 8px;font-weight:700;border-bottom:1px solid #eee;vertical-align:top;">Additional Services</td><td style="padding:4px 8px;border-bottom:1px solid #eee;">means any services you request and we agree to provide that will be paid for you from your own funds.</td></tr>
@@ -4783,7 +3953,7 @@ function doc5_SelfManaged(name, address, street, suburb, postcode, mobile, phone
         </table>
       ${colEnd}
 
-      ${col('Schedule 2 &#8211; Your Self-management Responsibilities')}
+      ${col('Schedule 2 &#8211; Your Self-management Responsibilities (Pages 26&#8211;29)')}
         <p style="font-size:.85rem;">We have set out detail below of your Self-management Responsibilities and Our Registered Provider Responsibilities.</p>
         <table class="doc-table" style="font-size:.78rem;">
           <tr style="background:#eaf2e6;font-weight:700;">
@@ -4819,7 +3989,7 @@ function doc5_SelfManaged(name, address, street, suburb, postcode, mobile, phone
         </table>
       ${colEnd}
 
-      ${col('Schedule 3 &#8211; Statement of Rights')}
+      ${col('Schedule 3 &#8211; Statement of Rights (Pages 30&#8211;31)')}
         <p><strong>Independence, autonomy, empowerment and freedom of choice</strong></p>
         <p>1.1 An individual has a right to: (a) exercise choice and make decisions that affect the individual&#39;s life, including in relation to the following: (i) the funded aged care services the individual has been approved to access; (ii) how, when and by whom those services are delivered to the individual; (iii) the individual&#39;s financial affairs and personal possessions; and (b) be supported (if necessary) to make those decisions, and have those decisions respected; and (c) take personal risks, including in pursuit of the individual&#39;s quality of life, social participation and intimate and sexual relationships.</p>
         <p><strong>Equitable access</strong></p>
@@ -4841,7 +4011,7 @@ function doc5_SelfManaged(name, address, street, suburb, postcode, mobile, phone
         <p>1.13 An individual has a right to access, at any time the individual chooses, a person designated by the individual, or a person designated by an appropriate authority.</p>
       ${colEnd}
 
-      ${col('Schedule 4 &#8211; Code of Conduct')}
+      ${col('Schedule 4 &#8211; Code of Conduct (Page 32)')}
         <p>When delivering funded aged care services to individuals, Registered Providers, Aged Care Workers and responsible persons of Registered Providers must:</p>
         <p>(a) act with respect for individuals&#39; rights to freedom of expression, self determination and decision making in accordance with applicable laws and conventions; and</p>
         <p>(b) act in a way that treats individuals with dignity and respect, and values their diversity; and</p>
@@ -4853,7 +4023,7 @@ function doc5_SelfManaged(name, address, street, suburb, postcode, mobile, phone
         <p>(h) take all reasonable steps to prevent and respond to: (i) all forms of violence, discrimination, exploitation, neglect and abuse; and (ii) sexual misconduct.</p>
       ${colEnd}
 
-      ${col('Schedule 5 &#8211; List of Available Services')}
+      ${col('Schedule 5 &#8211; List of Available Services (Pages 33&#8211;34)')}
         <p><strong>Clinical Supports</strong></p>
         <ul>
           <li>Registered nurse clinical care</li>
@@ -4891,8 +4061,8 @@ function doc5_SelfManaged(name, address, street, suburb, postcode, mobile, phone
         </ul>
       ${colEnd}
 
-      <!-- ═══ SCHEDULE 6 – PRICE LIST ═══ -->
-      <div class="doc-section-h" style="margin-top:20px;">Schedule 6 &#8211; Price List</div>
+      <!-- ═══ SCHEDULE 6 – PRICE LIST (Pages 35-37) ═══ -->
+      <div class="doc-section-h" style="margin-top:20px;">Schedule 6 &#8211; Price List (Pages 35&#8211;37)</div>
       <p style="font-size:.83rem;font-style:italic;">Prices current at date of this Service Agreement (V1.4 JAN 2026). Prices may be updated annually on or around 1 July each year.</p>
 
       <p style="font-size:.85rem;font-weight:700;color:var(--odc-green);margin-top:10px;">Clinical Nursing Services</p>
@@ -5011,8 +4181,8 @@ function doc5_SelfManaged(name, address, street, suburb, postcode, mobile, phone
         </table>
       </div>
 
-      <!-- ═══ SCHEDULE 7 – COMPLAINTS ═══ -->
-      ${col('Schedule 7 &#8211; Complaints and Feedback')}
+      <!-- ═══ SCHEDULE 7 – COMPLAINTS (Page 38) ═══ -->
+      ${col('Schedule 7 &#8211; Complaints and Feedback (Page 38)')}
         <p><strong>Our complaints and feedback processes</strong></p>
         <p>If you would like to give feedback or make a complaint, you can speak to any of our Aged Care Workers or use the methods below:</p>
         <ul>
@@ -5046,8 +4216,8 @@ function doc5_SelfManaged(name, address, street, suburb, postcode, mobile, phone
         </ul>
       ${colEnd}
 
-      <!-- ═══ SCHEDULE 8 – DIRECT DEBIT ═══ -->
-      <div class="doc-section-h" style="margin-top:20px;">Schedule 8 &#8211; Direct Debit Service Agreement and Form</div>
+      <!-- ═══ SCHEDULE 8 – DIRECT DEBIT (Pages 39-42) ═══ -->
+      <div class="doc-section-h" style="margin-top:20px;">Schedule 8 &#8211; Direct Debit Service Agreement and Form (Pages 39&#8211;42)</div>
       <div style="font-size:.85rem;line-height:1.65;border:1px solid var(--odc-border);border-radius:6px;padding:14px 16px;margin-bottom:12px;background:#f9fdf8;">
         <p><strong>Request and Authority to Debit</strong></p>
         <p>Your surname: ${ff(ddSurname)}<br>Your given names: ${ff(ddGiven)}</p>
@@ -5113,7 +4283,7 @@ function doc5_SelfManaged(name, address, street, suburb, postcode, mobile, phone
         </tr>
       </table>
 
-      ${col('Direct Debit Service Agreement')}
+      ${col('Direct Debit Service Agreement (Pages 36&#8211;37)')}
         <p>This is your Direct Debit Service Agreement with us. It explains what your and our obligations are when undertaking a direct debit arrangement and forms part of the terms and conditions of your Direct Debit Request.</p>
         <p><strong>Debiting your account:</strong> By signing the Direct Debit Request, you request and authorise us to arrange for funds to be debited from your account. You should refer to the Direct Debit Request, the Service Agreement and this Direct Debit Service Agreement for the terms of the arrangement between us and you. We will only arrange for funds to be debited from your account as authorised in the Direct Debit Request. The payment will be deducted from your nominated account on the payment due date. If your payment due date falls on a non-banking day, it will be processed on the next banking day. If you are unsure when a debit has been or will be processed, ask your financial institution.</p>
         <p><strong>Amendments by us:</strong> We may amend this Direct Debit Service Agreement by giving you at least 14 days notice.</p>
@@ -5137,7 +4307,7 @@ function doc5_SelfManaged(name, address, street, suburb, postcode, mobile, phone
         </ul>
       ${colEnd}
 
-      ${col('Schedule 9 &#8211; Access Approval')}
+      ${col('Schedule 9 &#8211; Access Approval (Page 43)')}
         <p><em>To be attached (but not for Transitioned HCP Recipients) if it is available.</em></p>
         <p>Attach the participant&#39;s Access Approval document from the System Governor here when available.</p>
       ${colEnd}
@@ -5285,16 +4455,9 @@ function _collectSigState(){
     aStaff:  Array.from(appliedStaffIds),
   };
 }
-// Build the full snapshot (used by both autosave & shareable URL).
-// Also snapshots any Step-3 doc inputs into docInputCache and returns it,
-// so values typed into the contract preview survive save/load cycles.
+// Build the full snapshot (used by both autosave & shareable URL)
 function _collectFull(){
-  try { _snapshotDocInputs(); } catch(e){}
-  return {
-    v: _collectAllValues(),
-    sig: _collectSigState(),
-    doc: window.docInputCache || {}
-  };
+  return { v: _collectAllValues(), sig: _collectSigState() };
 }
 function _restoreAllValues(arr){
   const inputs = Array.from(document.querySelectorAll('input, select, textarea')).filter(el => {
@@ -5313,22 +4476,7 @@ function _restoreAllValues(arr){
     try { el.dispatchEvent(new Event('change', {bubbles:true})); } catch(e){}
   }
 }
-
-// Restore the doc-input cache (Step 3 typed values). Call AFTER renderDocs
-// to apply, or just set window.docInputCache so next renderDocs picks it up.
-function _restoreDocInputCache(cache){
-  if (!cache || typeof cache !== 'object') return;
-  window.docInputCache = Object.assign({}, cache);
-  // If panel3 is already rendered, push values into the visible inputs now
-  if (document.getElementById('panel3') && document.getElementById('panel3').classList.contains('active')) {
-    try { _restoreDocInputs(); } catch(e){}
-  }
-}
-// Restore signature state, then re-apply each slot so the doc shows them.
-// Doc rendering can be re-triggered several times by the value restore
-// (because contract-variant radios fire change events). We retry painting
-// up to 10× over 5 seconds so signatures land on the FINAL rendered slots
-// instead of slots that get replaced mid-restore.
+// Restore signature state, then re-apply each slot so the doc shows them
 function _restoreSigState(sig){
   if (!sig) return;
   if (sig.client) { clientSigUrl = sig.client; }
@@ -5337,60 +4485,27 @@ function _restoreSigState(sig){
   appliedClientIds = new Set(sig.aClient || []);
   appliedRepIds    = new Set(sig.aRep    || []);
   appliedStaffIds  = new Set(sig.aStaff  || []);
-
-  function paintRole(set, url) {
-    if (!url) return 0;
-    let painted = 0;
-    set.forEach(id => {
-      const el = document.getElementById('ss_'+id);
-      if (!el) return;
-      el.className = 'sig-slot applied';
-      el.innerHTML = `<img src="${url}" alt="Signature">`;
-      el.onclick = () => removeSigFrom(id);
-      el.title = 'Click to remove signature';
-      painted++;
-    });
-    return painted;
-  }
-  function totalExpected(){
-    return (clientSigUrl ? appliedClientIds.size : 0)
-         + (repSigUrl    ? appliedRepIds.size    : 0)
-         + (staffSigUrl  ? appliedStaffIds.size  : 0);
-  }
-  function paintAll(){
-    return paintRole(appliedClientIds, clientSigUrl)
-         + paintRole(appliedRepIds,    repSigUrl)
-         + paintRole(appliedStaffIds,  staffSigUrl);
-  }
-
-  let attempts = 0;
-  const expected = totalExpected();
-  const tick = () => {
-    const painted = paintAll();
-    attempts++;
-    if (painted < expected && attempts < 10) {
-      setTimeout(tick, 500);
-    } else {
-      console.log('[sig] paint settled — painted', painted, 'of', expected, 'slot(s) after', attempts, 'attempt(s)');
-    }
-  };
-  setTimeout(tick, 300); // initial attempt soon, retries every 500ms up to 5s
-
-  // Restore Step 2 sigPad canvases and previews
+  // Wait for renderDocs to finish, then paint signatures into slots
   setTimeout(() => {
+    function paintRole(set, url) {
+      if (!url) return;
+      set.forEach(id => {
+        const el = document.getElementById('ss_'+id);
+        if (!el) return;
+        el.className = 'sig-slot applied';
+        el.innerHTML = `<img src="${url}" alt="Signature">`;
+        el.onclick = () => removeSigFrom(id);
+        el.title = '클릭하면 서명 제거 (Click to remove signature)';
+      });
+    }
+    paintRole(appliedClientIds, clientSigUrl);
+    paintRole(appliedRepIds,    repSigUrl);
+    paintRole(appliedStaffIds,  staffSigUrl);
+    // Restore the captured signatures back into Step 2 sigPads & previews
     try {
-      if (clientSigUrl && sigPadClient) {
-        sigPadClient.fromDataURL(clientSigUrl);
-        const p=document.getElementById('clientSigPreview'); if(p){p.src=clientSigUrl; p.style.display='';}
-      }
-      if (repSigUrl && sigPadRep) {
-        sigPadRep.fromDataURL(repSigUrl);
-        const p=document.getElementById('repSigPreview'); if(p){p.src=repSigUrl; p.style.display='';}
-      }
-      if (staffSigUrl && sigPadStaff) {
-        sigPadStaff.fromDataURL(staffSigUrl);
-        const p=document.getElementById('staffSigPreview'); if(p){p.src=staffSigUrl; p.style.display='';}
-      }
+      if (clientSigUrl && sigPadClient) { sigPadClient.fromDataURL(clientSigUrl); const p=document.getElementById('clientSigPreview'); if(p){p.src=clientSigUrl;p.style.display='';} }
+      if (repSigUrl    && sigPadRep)    { sigPadRep.fromDataURL(repSigUrl);       const p=document.getElementById('repSigPreview');    if(p){p.src=repSigUrl;p.style.display='';} }
+      if (staffSigUrl  && sigPadStaff)  { sigPadStaff.fromDataURL(staffSigUrl);   const p=document.getElementById('staffSigPreview');  if(p){p.src=staffSigUrl;p.style.display='';} }
     } catch(e){ console.warn('sig pad restore:', e); }
     // Update sig status badge in panel 3
     try {
@@ -5403,7 +4518,7 @@ function _restoreSigState(sig){
         if (noSig) noSig.style.display = 'none';
       }
     } catch(e){}
-  }, 800);
+  }, 700);
 }
 let _saveTimer = null;
 function autoSaveDebounced(){
@@ -5411,7 +4526,7 @@ function autoSaveDebounced(){
   _saveTimer = setTimeout(() => {
     try {
       const full = _collectFull();
-      const data = { values: full.v, sig: full.sig, doc: full.doc || {}, savedAt: new Date().toISOString() };
+      const data = { values: full.v, sig: full.sig, savedAt: new Date().toISOString() };
       localStorage.setItem(SAVE_KEY, JSON.stringify(data));
     } catch(e){}
   }, 700);
@@ -5435,7 +4550,7 @@ function _showRestoreToast(msg, isWarn){
 }
 
 function loadSavedData(){
-  let arr = null, sig = null, source = '', isLegacy = false, docCache = null;
+  let arr = null, sig = null, source = '', isLegacy = false;
   const h = location.hash;
   // ── New compressed format: #z=<lz-string-encoded> ──
   if (h && h.indexOf('#z=') === 0 && typeof LZString !== 'undefined') {
@@ -5453,7 +4568,7 @@ function loadSavedData(){
       const json = decodeURIComponent(escape(atob(h.slice(3))));
       const parsed = JSON.parse(json);
       if (Array.isArray(parsed)) { arr = parsed; source = 'shareable link (legacy)'; isLegacy = true; }
-      else if (parsed && Array.isArray(parsed.v)) { arr = parsed.v; sig = parsed.sig || null; docCache = parsed.doc || null; source = 'shareable link'; }
+      else if (parsed && Array.isArray(parsed.v)) { arr = parsed.v; sig = parsed.sig || null; source = 'shareable link'; }
     } catch(e){ console.warn('Hash restore failed:', e); }
   }
   if (!arr) {
@@ -5461,7 +4576,7 @@ function loadSavedData(){
       const raw = localStorage.getItem(SAVE_KEY);
       if (raw) {
         const data = JSON.parse(raw);
-        if (data && Array.isArray(data.values)) { arr = data.values; sig = data.sig || null; docCache = data.doc || null; source = 'this browser'; }
+        if (data && Array.isArray(data.values)) { arr = data.values; sig = data.sig || null; source = 'this browser'; }
       }
     } catch(e){}
   }
@@ -5469,7 +4584,6 @@ function loadSavedData(){
   setTimeout(() => {
     _restoreAllValues(arr);
     if (sig) _restoreSigState(sig);
-    if (docCache) _restoreDocInputCache(docCache);
     const sigCount = sig ? ((sig.client?1:0)+(sig.rep?1:0)+(sig.staff?1:0)) : 0;
     const slotCount = sig ? (sig.aClient.length + sig.aRep.length + sig.aStaff.length) : 0;
     console.log('Restored from:', source, '·', arr.length, 'fields ·', sigCount, 'signatures ·', slotCount, 'applied slots');
@@ -5483,7 +4597,7 @@ function loadSavedData(){
       _showRestoreToast(`✓ Restored from ${source.replace(' (legacy)','')} — <strong>${arr.length}</strong> fields${sigBit}.`, false);
     }
     if (source.indexOf('shareable link') === 0) {
-      try { localStorage.setItem(SAVE_KEY, JSON.stringify({ values: arr, sig: sig, doc: docCache || {}, savedAt: new Date().toISOString() })); } catch(e){}
+      try { localStorage.setItem(SAVE_KEY, JSON.stringify({ values: arr, sig: sig, savedAt: new Date().toISOString() })); } catch(e){}
     }
   }, 500);
 }
@@ -5534,10 +4648,9 @@ window.closeSaveModal = function(){
 window.manualSave = function(){
   try {
     const full = _collectFull();
-    const data = { values: full.v, sig: full.sig, doc: full.doc || {}, savedAt: new Date().toISOString() };
+    const data = { values: full.v, sig: full.sig, savedAt: new Date().toISOString() };
     localStorage.setItem(SAVE_KEY, JSON.stringify(data));
-    const lastSaved = document.getElementById('lastSavedAt');
-    if (lastSaved) lastSaved.textContent = 'Last saved: ' + new Date(data.savedAt).toLocaleString();
+    document.getElementById('lastSavedAt').textContent = 'Last saved: ' + new Date(data.savedAt).toLocaleString();
   } catch(e){ alert('Save failed: ' + e.message); }
 };
 window.clearLocalSave = function(){
@@ -5633,701 +4746,80 @@ window.generateShareUrl = function(){
 };
 window.copyShareUrl = function(){
   const box = document.getElementById('shareUrlBox');
-  if (!box.value) generateShareUrl();
+  if (!box || !box.value) return;
   box.select();
   try { navigator.clipboard.writeText(box.value); } catch(e) { document.execCommand('copy'); }
   alert('Link copied to clipboard.');
 };
 
-// ════════════════════════════════════════════════
-// SAVE AS FILE — download / upload .json snapshot
-// (No length limits — works for any size including all signatures.)
-// ════════════════════════════════════════════════
-window.downloadJsonFile = function(){
+// ── Client-version helpers: JSON file download + email-to-ODC link ──
+// Edit this to your real ODC inbox before publishing:
+const ODC_STAFF_EMAIL = 'agedcare@onedreamcommunity.com.au';
+
+function _safeClientName() {
+  try {
+    const raw = (document.getElementById('f_name') || {}).value || '';
+    const cleaned = raw.trim().replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, '_');
+    return cleaned || 'Untitled';
+  } catch(e){ return 'Untitled'; }
+}
+
+window.downloadJsonFile = function() {
   try {
     const full = _collectFull();
     const payload = {
-      app: 'ODC Service Agreement',
-      version: 2,
-      savedAt: new Date().toISOString(),
-      values: full.v,
+      v: full.v,
       sig: full.sig,
-      doc: full.doc || {}
+      savedAt: new Date().toISOString(),
+      source: 'client-self-service'
     };
-    const json = JSON.stringify(payload, null, 2);
+    const json = JSON.stringify(payload);
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const filename = 'ODC-Agreement_' + _safeClientName() + '_' + stamp + '.json';
     const blob = new Blob([json], { type: 'application/json' });
-    // Build a friendly filename: client name + date if available
-    let nameBit = '';
-    try {
-      const nameEl = document.getElementById('f_name');
-      if (nameEl && nameEl.value) {
-        nameBit = '_' + nameEl.value.trim().replace(/[^a-zA-Z0-9가-힣]+/g, '-').slice(0, 40);
-      }
-    } catch(e){}
-    const stamp = new Date().toISOString().slice(0, 10);
-    const filename = 'ODC-Agreement' + nameBit + '_' + stamp + '.json';
-    const url = URL.createObjectURL(blob);
+    const url  = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = filename;
     document.body.appendChild(a);
     a.click();
-    setTimeout(() => {
-      try { document.body.removeChild(a); URL.revokeObjectURL(url); } catch(e){}
-    }, 200);
-    const sigCount = (full.sig.client?1:0) + (full.sig.rep?1:0) + (full.sig.staff?1:0);
-    const slotCount = full.sig.aClient.length + full.sig.aRep.length + full.sig.aStaff.length;
-    const status = document.getElementById('fileSaveStatus');
-    if (status) {
-      status.innerHTML = `✓ Saved <strong>${filename}</strong> · ${full.v.length} fields, ${sigCount} sig(s), ${slotCount} slot(s)`;
-      status.style.color = '#2f4a2a';
-    }
-  } catch(e){
-    console.error('downloadJsonFile failed:', e);
-    alert('Save failed: ' + (e && e.message ? e.message : e));
-  }
-};
+    setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 200);
 
-window.loadJsonFile = function(evt){
-  const file = evt && evt.target && evt.target.files && evt.target.files[0];
-  if (!file) return;
-  const status = document.getElementById('fileSaveStatus');
-  const reader = new FileReader();
-  reader.onload = function(e){
-    try {
-      const parsed = JSON.parse(e.target.result);
-      // Accept both the new wrapped format and a raw {v, sig} payload
-      let arr = null, sig = null, docCache = null;
-      if (parsed && Array.isArray(parsed.values)) {
-        arr = parsed.values; sig = parsed.sig || null; docCache = parsed.doc || null;
-      } else if (parsed && Array.isArray(parsed.v)) {
-        arr = parsed.v; sig = parsed.sig || null; docCache = parsed.doc || null;
-      } else if (Array.isArray(parsed)) {
-        arr = parsed; // legacy: just an array of values
-      }
-      if (!arr) {
-        alert('This does not look like an ODC save file.');
-        return;
-      }
-      _restoreAllValues(arr);
-      if (sig) _restoreSigState(sig);
-      if (docCache) _restoreDocInputCache(docCache);
-      // Persist to localStorage so refreshes keep the loaded data
-      try {
-        localStorage.setItem(SAVE_KEY, JSON.stringify({
-          values: arr, sig: sig, doc: docCache || {}, savedAt: new Date().toISOString()
-        }));
-      } catch(e){}
-      const sigCount = sig ? ((sig.client?1:0)+(sig.rep?1:0)+(sig.staff?1:0)) : 0;
-      const slotCount = sig ? (sig.aClient.length + sig.aRep.length + sig.aStaff.length) : 0;
-      if (status) {
-        status.innerHTML = `✓ Loaded <strong>${file.name}</strong> · ${arr.length} fields, ${sigCount} sig(s), ${slotCount} slot(s)`;
-        status.style.color = '#2f4a2a';
-      }
-      _showRestoreToast(`✓ Restored from file <strong>${file.name}</strong> — <strong>${arr.length}</strong> fields, <strong>${sigCount}</strong> signature(s), <strong>${slotCount}</strong> slot(s).`, false);
-    } catch(err){
-      console.error('loadJsonFile failed:', err);
-      alert('Could not read file: ' + (err && err.message ? err.message : err));
-      if (status) {
-        status.textContent = '✗ Load failed: ' + (err && err.message ? err.message : err);
-        status.style.color = '#a64b2a';
-      }
-    } finally {
-      // Reset the input so picking the same file again still triggers onchange
-      try { evt.target.value = ''; } catch(e){}
-    }
-  };
-  reader.onerror = function(){
-    alert('Could not read file.');
-  };
-  reader.readAsText(file);
-};
+    // Refresh the email link so the subject line includes the client's name + filename
+    const subject = encodeURIComponent('ODC Service Agreement — Completed by ' + _safeClientName());
+    const body = encodeURIComponent(
+      'Hello ODC team,\n\n'
+      + 'Please find attached my completed Service Agreement form.\n\n'
+      + 'File name: ' + filename + '\n\n'
+      + 'Thank you.'
+    );
+    const link = document.getElementById('emailJsonLink');
+    if (link) link.href = 'mailto:' + ODC_STAFF_EMAIL + '?subject=' + subject + '&body=' + body;
 
-// ════════════════════════════════════════════════════════════════════════
-// SHAREPOINT INTEGRATION (Microsoft Graph + MSAL.js)
-// Each user signs in with their own Microsoft 365 account; saves go to
-// /sites/AgedCareTeam622/Shared Documents/Service Agreement Records/{user}/
-// ════════════════════════════════════════════════════════════════════════
-const SP_CONFIG = {
-  clientId: '7c1eb587-aeaf-43d9-855d-dba2ac0dc99d',
-  tenantId: '857e6685-dad1-41ac-b637-b3fa089eeea8',
-  redirectUri: window.location.origin + window.location.pathname,
-  spHost: 'onedreamcommunity.sharepoint.com',
-  spSitePath: '/sites/AgedCareTeam622',
-  spFolderPath: 'Service Agreement Records',
-  scopes: ['User.Read', 'Files.ReadWrite.All', 'Sites.ReadWrite.All']
-};
-
-let _msal = null;
-const _spCache = { siteId: null, driveId: null };
-
-function _spEscapeHtml(s){
-  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
-    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
-  }[c]));
-}
-
-// Encode each path segment but preserve "/" separators (Graph wants this format)
-function _spEncodePath(path){
-  return path.split('/').filter(x => x.length).map(encodeURIComponent).join('/');
-}
-
-// _spInit returns a Promise that resolves to the MSAL instance once it's
-// fully initialised AND any pending redirect response has been processed.
-let _spInitPromise = null;
-function _spInit(){
-  if (_spInitPromise) return _spInitPromise;
-  if (typeof msal === 'undefined') {
-    console.warn('[SP] MSAL library not loaded');
-    return Promise.resolve(null);
-  }
-  _msal = new msal.PublicClientApplication({
-    auth: {
-      clientId: SP_CONFIG.clientId,
-      authority: 'https://login.microsoftonline.com/' + SP_CONFIG.tenantId,
-      redirectUri: SP_CONFIG.redirectUri,
-      navigateToLoginRequestUrl: true
-    },
-    cache: { cacheLocation: 'localStorage', storeAuthStateInCookie: false }
-  });
-  _spInitPromise = (async () => {
-    if (typeof _msal.initialize === 'function') {
-      try { await _msal.initialize(); } catch(e){ console.warn('[SP] initialize:', e); }
-    }
-    // Complete any redirect-based sign-in that just returned
-    try {
-      const result = await _msal.handleRedirectPromise();
-      if (result && result.account) {
-        _msal.setActiveAccount(result.account);
-      }
-    } catch(e) {
-      console.error('[SP] handleRedirectPromise error:', e);
-    }
-    // Restore active account from cache if available
-    const accs = _msal.getAllAccounts();
-    if (accs && accs.length && !_msal.getActiveAccount()) {
-      _msal.setActiveAccount(accs[0]);
-    }
-    _spUpdateUi();
-    return _msal;
-  })();
-  return _spInitPromise;
-}
-
-function _spCurrentAccount(){
-  if (!_msal) return null;
-  const accs = _msal.getAllAccounts();
-  return accs && accs.length ? accs[0] : null;
-}
-
-async function _spAcquireToken(){
-  // MSAL v3 requires initialize() to complete before any token API can be called.
-  // Calling it again is a no-op once finished.
-  if (_msal && typeof _msal.initialize === 'function') {
-    try { await _msal.initialize(); } catch(e){}
-  }
-  const account = _spCurrentAccount();
-  if (!account) throw new Error('Not signed in');
-  try {
-    const r = await _msal.acquireTokenSilent({ scopes: SP_CONFIG.scopes, account });
-    return r.accessToken;
+    _showRestoreToast('✓ <strong>Downloaded:</strong> ' + filename + '<br>Now click <strong>"Open email to ODC"</strong> and attach this file.', false);
   } catch(e) {
-    if ((typeof msal !== 'undefined' && e instanceof msal.InteractionRequiredAuthError)
-        || /interaction_required|consent_required|login_required/i.test(e.message || '')) {
-      const r = await _msal.acquireTokenPopup({ scopes: SP_CONFIG.scopes, account });
-      return r.accessToken;
-    }
-    throw e;
-  }
-}
-
-async function _graph(url, opts){
-  const token = await _spAcquireToken();
-  const headers = Object.assign({}, (opts && opts.headers) || {}, { Authorization: 'Bearer ' + token });
-  const res = await fetch(url, Object.assign({}, opts || {}, { headers }));
-  if (!res.ok) {
-    let detail = '';
-    try { detail = await res.text(); } catch(e){}
-    throw new Error('Graph ' + res.status + ': ' + (detail.slice(0, 240) || res.statusText));
-  }
-  return res;
-}
-
-async function _spGetSiteId(){
-  if (_spCache.siteId) return _spCache.siteId;
-  const url = 'https://graph.microsoft.com/v1.0/sites/' + SP_CONFIG.spHost + ':' + SP_CONFIG.spSitePath;
-  const res = await _graph(url);
-  const data = await res.json();
-  _spCache.siteId = data.id;
-  return data.id;
-}
-
-async function _spGetDriveId(){
-  if (_spCache.driveId) return _spCache.driveId;
-  const siteId = await _spGetSiteId();
-  const res = await _graph('https://graph.microsoft.com/v1.0/sites/' + siteId + '/drive');
-  const data = await res.json();
-  _spCache.driveId = data.id;
-  return data.id;
-}
-
-function _spUserFolderName(){
-  const acc = _spCurrentAccount();
-  if (!acc) return 'unknown';
-  const upn = acc.username || acc.name || 'unknown';
-  // Use email prefix (before @) and sanitize for SharePoint folder
-  return upn.split('@')[0].replace(/[\\/:*?"<>|#%&{}]/g, '_').slice(0, 60) || 'unknown';
-}
-
-// Flat shared-folder model: all team members save into the same folder so
-// everyone can see/load every record. Per-user subfolders are NOT used.
-async function _spEnsureBaseFolder(){
-  const driveId = await _spGetDriveId();
-  const baseUrl = 'https://graph.microsoft.com/v1.0/drives/' + driveId
-    + '/root:/' + _spEncodePath(SP_CONFIG.spFolderPath);
-  try {
-    await _graph(baseUrl);
-    return;
-  } catch(e) {
-    if (!/Graph 404/.test(e.message)) throw e;
-  }
-  // Create base folder under drive root
-  await _graph('https://graph.microsoft.com/v1.0/drives/' + driveId + '/root/children', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name: SP_CONFIG.spFolderPath, folder: {}, '@microsoft.graph.conflictBehavior': 'fail' })
-  });
-}
-
-window.spSignIn = async function(){
-  const instance = await _spInit();
-  if (!instance) {
-    alert('Failed to load Microsoft authentication library (MSAL). Refresh the page and try again.');
-    return;
-  }
-  try {
-    // loginRedirect navigates the page to Microsoft login and returns via
-    // handleRedirectPromise on the next load. This is more reliable than
-    // popup login (no popup blockers, works in iframes/embedded scenarios).
-    await instance.loginRedirect({ scopes: SP_CONFIG.scopes, prompt: 'select_account' });
-  } catch(e) {
-    console.error('[SP] sign-in failed:', e);
-    alert('Sign-in failed: ' + (e.message || e));
+    alert('Download failed: ' + e.message);
   }
 };
 
-window.spSignOut = function(){
-  if (!_msal) return;
-  const account = _spCurrentAccount();
-  if (!account) { _spUpdateUi(); return; }
-  _spCache.siteId = null;
-  _spCache.driveId = null;
-  // Use redirect-based logout so we end up back on the gate cleanly
-  try { _msal.logoutRedirect({ account, postLogoutRedirectUri: SP_CONFIG.redirectUri }); }
-  catch(e){
-    // Last-resort: clear cache and reload
-    try { _msal.clearCache(); } catch(e2){}
-    setTimeout(() => location.reload(), 100);
+// Keep the email link's mailto address in sync with ODC_STAFF_EMAIL on page load
+window.addEventListener('DOMContentLoaded', () => {
+  const link = document.getElementById('emailJsonLink');
+  if (link) {
+    const subject = encodeURIComponent('ODC Service Agreement (Completed)');
+    link.href = 'mailto:' + ODC_STAFF_EMAIL + '?subject=' + subject;
   }
-};
-
-window.saveToSharePoint = async function(){
-  // Show a small "uploading…" badge attached to the floating Save button
-  const btn = document.querySelector('#wfSaveBtn button');
-  const restoreBtn = btn ? btn.innerHTML : null;
-  if (btn) { btn.innerHTML = '☁️ Uploading…'; btn.disabled = true; }
-  try {
-    if (!_msal || !_spCurrentAccount()) {
-      await window.spSignIn();
-      if (!_spCurrentAccount()) {
-        if (btn) { btn.innerHTML = restoreBtn; btn.disabled = false; }
-        return;
-      }
-    }
-    await _spEnsureBaseFolder();
-    const driveId = await _spGetDriveId();
-    const savedBy = _spCurrentAccount().username || _spCurrentAccount().name;
-    const saverTag = _spUserFolderName(); // sanitised email prefix, e.g. "compliance"
-    const full = _collectFull();
-    const payload = {
-      app: 'ODC Service Agreement',
-      version: 2,
-      savedAt: new Date().toISOString(),
-      savedBy: savedBy,
-      values: full.v,
-      sig: full.sig,
-      doc: full.doc || {}
-    };
-    const json = JSON.stringify(payload, null, 2);
-
-    // Build a deterministic filename per client so re-saving the same client
-    // overwrites the existing file instead of cluttering the list.
-    //   With client name : ODC-Agreement_Mary-Smith.json     (any teammate → same file)
-    //   Without name     : ODC-Agreement_Untitled-by-{user}.json  (drafts per user)
-    let clientSlug = '';
-    try {
-      const nameEl = document.getElementById('f_name');
-      if (nameEl && nameEl.value) {
-        clientSlug = nameEl.value.trim()
-          .replace(/[\\/:*?"<>|#%&{}]/g, '')
-          .replace(/\s+/g, '-')
-          .slice(0, 60);
-      }
-    } catch(e){}
-    const filename = clientSlug
-      ? ('ODC-Agreement_' + clientSlug + '.json')
-      : ('ODC-Agreement_Untitled-by-' + saverTag + '.json');
-
-    // Flat path — everyone saves into the same shared folder
-    const fullPath = SP_CONFIG.spFolderPath + '/' + filename;
-    const url = 'https://graph.microsoft.com/v1.0/drives/' + driveId
-      + '/root:/' + _spEncodePath(fullPath) + ':/content';
-    await _graph(url, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: json
-    });
-    const sigCount = (full.sig.client?1:0) + (full.sig.rep?1:0) + (full.sig.staff?1:0);
-    const slotCount = full.sig.aClient.length + full.sig.aRep.length + full.sig.aStaff.length;
-    _showRestoreToast('✓ Saved to SharePoint — <strong>' + _spEscapeHtml(filename) + '</strong><br><small>' + full.v.length + ' fields · ' + sigCount + ' signature(s) · ' + slotCount + ' applied slot(s)</small>', false);
-    window.__currentPickerFile = { name: filename };
-    if (btn) {
-      btn.innerHTML = '✓ Saved!';
-      setTimeout(() => { btn.innerHTML = restoreBtn; btn.disabled = false; }, 1800);
-    }
-  } catch(e) {
-    console.error('[SP] save failed:', e);
-    _showRestoreToast('✗ Save failed: ' + _spEscapeHtml(e.message || String(e)), true);
-    if (btn) { btn.innerHTML = restoreBtn; btn.disabled = false; }
-  }
-};
-
-// Legacy alias — anything that used to call listSharePointFiles now opens the picker.
-window.listSharePointFiles = function(){
-  return window.pickerOpen();
-};
-
-// ════════════════════════════════════════════════════════════════════════
-// CLIENT PICKER — shown right after login; lists every saved form
-// and offers a "Start New" path. Replaces the older "open empty form,
-// then go find your saves in a modal" flow with a Care-Plan-style picker.
-// ════════════════════════════════════════════════════════════════════════
-function pickerSetStatus(msg, kind){
-  const el = document.getElementById('pickerStatus');
-  if (!el) return;
-  if (!msg) { el.innerHTML = ''; el.className = ''; return; }
-  el.className = 'picker-status ' + (kind || 'info');
-  el.textContent = msg;
-}
-
-window.pickerOpen = async function(){
-  const picker = document.getElementById('clientPicker');
-  if (!picker) return;
-  // Make sure user is logged in; if not, send them back to the gate
-  if (!_msal || !_spCurrentAccount()) {
-    const gate = document.getElementById('loginGate');
-    if (gate) { gate.style.opacity = '1'; gate.style.display = 'flex'; }
-    return;
-  }
-  picker.classList.add('active');
-  // Populate user display
-  const acc = _spCurrentAccount();
-  const userEl = document.getElementById('pickerUserName');
-  if (userEl) userEl.textContent = (acc.name || acc.username || '');
-  await pickerRefresh();
-};
-
-window.pickerClose = function(){
-  const picker = document.getElementById('clientPicker');
-  if (picker) picker.classList.remove('active');
-};
-
-window.pickerRefresh = async function(){
-  const listBox = document.getElementById('pickerList');
-  const countEl = document.getElementById('pickerCount');
-  if (listBox) listBox.innerHTML = '<div class="picker-empty">Loading…</div>';
-  if (countEl) countEl.textContent = '…';
-  pickerSetStatus('', '');
-  try {
-    const driveId = await _spGetDriveId();
-    const folderPath = SP_CONFIG.spFolderPath;
-    const url = 'https://graph.microsoft.com/v1.0/drives/' + driveId
-      + '/root:/' + _spEncodePath(folderPath)
-      + ':/children?$orderby=lastModifiedDateTime desc&$top=200'
-      + '&$select=id,name,size,lastModifiedDateTime,file,createdBy,lastModifiedBy';
-    let res;
-    try { res = await _graph(url); }
-    catch(e) {
-      if (/Graph 404/.test(e.message)) {
-        if (listBox) listBox.innerHTML = '<div class="picker-empty">No saved forms yet.<br><small>Click <strong>+ Start New Form</strong> above to create your first one.</small></div>';
-        if (countEl) countEl.textContent = '0';
-        return;
-      }
-      throw e;
-    }
-    const data = await res.json();
-    const files = (data.value || []).filter(it => it.file && it.name && it.name.toLowerCase().endsWith('.json'));
-    if (countEl) countEl.textContent = String(files.length);
-    if (!files.length) {
-      if (listBox) listBox.innerHTML = '<div class="picker-empty">No saved forms yet.<br><small>Click <strong>+ Start New Form</strong> above to create your first one.</small></div>';
-      return;
-    }
-    if (listBox) {
-      listBox.innerHTML = files.map(f => {
-        const date = new Date(f.lastModifiedDateTime).toLocaleString();
-        const size = (f.size / 1024).toFixed(1) + ' KB';
-        const safeName = _spEscapeHtml(f.name);
-        const safeId = _spEscapeHtml(f.id);
-        let savedBy = '';
-        try {
-          // Prefer lastModifiedBy (who saved last); fall back to createdBy
-          if (f.lastModifiedBy && f.lastModifiedBy.user) {
-            savedBy = f.lastModifiedBy.user.displayName || f.lastModifiedBy.user.email || '';
-          } else if (f.createdBy && f.createdBy.user) {
-            savedBy = f.createdBy.user.displayName || f.createdBy.user.email || '';
-          }
-        } catch(e){}
-        const savedByBit = savedBy ? '<span class="row-saved-by">👤 ' + _spEscapeHtml(savedBy) + '</span> · ' : '';
-        const nameEsc = safeName.replace(/\\/g,'\\\\').replace(/\x27/g,'\\\x27');
-        return '<div class="picker-row" onclick="pickerOpenFile(\'' + safeId + '\',\'' + nameEsc + '\')">'
-          + '<div class="row-main">'
-            + '<div class="row-title">' + safeName + '</div>'
-            + '<div class="row-meta">' + savedByBit + _spEscapeHtml(date) + ' · ' + size + '</div>'
-          + '</div>'
-          + '<div class="row-actions">'
-            + '<button class="btn-open" onclick="event.stopPropagation(); pickerOpenFile(\'' + safeId + '\',\'' + nameEsc + '\')">Open →</button>'
-            + '<button class="btn-del" onclick="event.stopPropagation(); pickerDeleteFile(\'' + safeId + '\',\'' + nameEsc + '\')" title="Delete">🗑</button>'
-          + '</div>'
-        + '</div>';
-      }).join('');
-    }
-  } catch(e) {
-    console.error('[Picker] refresh failed:', e);
-    if (listBox) listBox.innerHTML = '<div class="picker-empty">Could not load the list.</div>';
-    pickerSetStatus('Error: ' + (e.message || e), 'error');
-  }
-};
-
-window.pickerOpenFile = async function(itemId, name){
-  pickerSetStatus('📥 Loading ' + name + '…', 'info');
-  try {
-    const driveId = await _spGetDriveId();
-    // Two-step download: get the item metadata (which includes the
-    // @microsoft.graph.downloadUrl instance annotation), then fetch that
-    // pre-signed URL directly. This is more reliable than `/content` for
-    // files with large signature payloads.
-    //
-    // ⚠ Do NOT use $select here — it strips instance annotations like
-    // @microsoft.graph.downloadUrl from the response. We want the default
-    // full driveItem payload so the annotation is present.
-    const metaUrl = 'https://graph.microsoft.com/v1.0/drives/' + driveId
-      + '/items/' + itemId;
-    const metaRes = await _graph(metaUrl);
-    const meta = await metaRes.json();
-    let downloadUrl = meta['@microsoft.graph.downloadUrl']
-                   || meta['@content.downloadUrl']
-                   || (meta['@microsoft.graph.downloadUrl'] && meta['@microsoft.graph.downloadUrl'].toString());
-    let fileRes;
-    if (downloadUrl) {
-      // Pre-signed URL — no auth header needed
-      fileRes = await fetch(downloadUrl);
-      if (!fileRes.ok) throw new Error('Pre-signed fetch failed: ' + fileRes.status);
-    } else {
-      // Fallback: try /content endpoint directly (may have CORS/redirect quirks
-      // but works for many small files)
-      console.warn('[Picker] No pre-signed URL — falling back to /content');
-      fileRes = await _graph('https://graph.microsoft.com/v1.0/drives/' + driveId + '/items/' + itemId + '/content');
-    }
-    const data = await fileRes.json();
-    console.log('[Picker] Loaded file:', name, '— size:', (meta && meta.size) || 'unknown', 'bytes — has sig:',
-      !!(data && (data.sig || (data.values && data.sig))));
-    let arr = null, sig = null, docCache = null;
-    if (data && Array.isArray(data.values)) { arr = data.values; sig = data.sig || null; docCache = data.doc || null; }
-    else if (data && Array.isArray(data.v)) { arr = data.v; sig = data.sig || null; docCache = data.doc || null; }
-    else if (Array.isArray(data)) { arr = data; }
-    if (!arr) { pickerSetStatus('Invalid file format.', 'error'); return; }
-    // First wipe any existing form data so we get a clean slate
-    pickerWipeFormState();
-    _restoreAllValues(arr);
-    if (sig) _restoreSigState(sig);
-    if (docCache) _restoreDocInputCache(docCache);
-    try {
-      localStorage.setItem(SAVE_KEY, JSON.stringify({ values: arr, sig: sig, doc: docCache || {}, savedAt: new Date().toISOString() }));
-    } catch(e){}
-    window.__currentPickerFile = { itemId, name };
-    window.pickerClose();
-    const sigCount = sig ? ((sig.client?1:0)+(sig.rep?1:0)+(sig.staff?1:0)) : 0;
-    const slotCount = sig ? (sig.aClient.length + sig.aRep.length + sig.aStaff.length) : 0;
-    _showRestoreToast('✓ Loaded <strong>' + _spEscapeHtml(name) + '</strong> — ' + arr.length + ' fields, ' + sigCount + ' sig(s), ' + slotCount + ' slot(s).', false);
-  } catch(e) {
-    console.error('[Picker] open failed:', e);
-    pickerSetStatus('Load failed: ' + (e.message || e), 'error');
-  }
-};
-
-window.pickerDeleteFile = async function(itemId, name){
-  if (!confirm('Really delete "' + name + '" ?\nThis will remove it for the entire team.')) return;
-  pickerSetStatus('🗑 Deleting…', 'info');
-  try {
-    const driveId = await _spGetDriveId();
-    await _graph('https://graph.microsoft.com/v1.0/drives/' + driveId + '/items/' + itemId, { method: 'DELETE' });
-    pickerSetStatus('✓ Deleted.', 'info');
-    await window.pickerRefresh();
-  } catch(e) {
-    console.error('[Picker] delete failed:', e);
-    pickerSetStatus('Delete failed: ' + (e.message || e), 'error');
-  }
-};
-
-// Clear everything — form fields, signatures, localStorage — so the next
-// form starts truly blank. Used by "Start New" and before loading a record.
-function pickerWipeFormState(){
-  try {
-    // Clear localStorage save
-    try { localStorage.removeItem(SAVE_KEY); } catch(e){}
-    // Clear in-memory doc-input cache so the new form starts blank
-    window.docInputCache = {};
-    if (typeof ffCache !== 'undefined') ffCache = {};
-    // Clear shared/sig localStorage entries (matches existing autoReset logic)
-    Object.keys(localStorage).forEach(function(k){
-      if (k.startsWith('odc_shared_') || k.startsWith('odc_sig_')) {
-        try { localStorage.removeItem(k); } catch(e){}
-      }
-    });
-    // Reset all form inputs
-    document.querySelectorAll('input, select, textarea').forEach(el => {
-      if (el.closest('#printModalBackdrop') || el.closest('#saveBackdrop')) return;
-      if (el.closest('#clientPicker') || el.closest('#loginGate')) return;
-      if (el.classList.contains('docpick') || el.classList.contains('extpick')) return;
-      if (el.tagName === 'INPUT' && (el.type === 'button' || el.type === 'submit' || el.type === 'file')) return;
-      if (el.type === 'checkbox' || el.type === 'radio') {
-        el.checked = false;
-      } else {
-        el.value = '';
-      }
-      try { el.dispatchEvent(new Event('input', {bubbles:true})); } catch(e){}
-      try { el.dispatchEvent(new Event('change', {bubbles:true})); } catch(e){}
-    });
-    // Reset signature state
-    try {
-      if (typeof clientSigUrl !== 'undefined') clientSigUrl = null;
-      if (typeof repSigUrl !== 'undefined') repSigUrl = null;
-      if (typeof staffSigUrl !== 'undefined') staffSigUrl = null;
-      if (typeof appliedClientIds !== 'undefined') appliedClientIds = new Set();
-      if (typeof appliedRepIds !== 'undefined') appliedRepIds = new Set();
-      if (typeof appliedStaffIds !== 'undefined') appliedStaffIds = new Set();
-    } catch(e){}
-    // Clear signature pads
-    try {
-      if (typeof sigPadClient !== 'undefined' && sigPadClient && sigPadClient.clear) sigPadClient.clear();
-      if (typeof sigPadRep !== 'undefined' && sigPadRep && sigPadRep.clear) sigPadRep.clear();
-      if (typeof sigPadStaff !== 'undefined' && sigPadStaff && sigPadStaff.clear) sigPadStaff.clear();
-    } catch(e){}
-  } catch(e) { console.warn('[Picker] wipe failed:', e); }
-  window.__currentPickerFile = null;
-}
-
-window.pickerStartNew = function(){
-  pickerWipeFormState();
-  window.pickerClose();
-  _showRestoreToast('✓ Started a new form — begin at Step 1.', false);
-};
-
-function _spUpdateUi(){
-  const acc = _spCurrentAccount();
-  const inBox = document.getElementById('spSignedIn');
-  const outBox = document.getElementById('spSignedOut');
-  const userInfo = document.getElementById('spUserInfo');
-  if (acc) {
-    if (inBox) inBox.style.display = '';
-    if (outBox) outBox.style.display = 'none';
-    if (userInfo) userInfo.textContent = (acc.name ? acc.name + ' ' : '') + '(' + (acc.username || '') + ')';
-  } else {
-    if (inBox) inBox.style.display = 'none';
-    if (outBox) outBox.style.display = '';
-  }
-}
-
-// ════════════════════════════════════════════════════════════════════════
-// LOGIN GATE BOOTSTRAP — wait for MSAL, init, handle redirect return,
-// then either hide the gate (already signed in) or show the Sign-in button.
-// ════════════════════════════════════════════════════════════════════════
-(function gateBootstrap(attemptsLeft){
-  if (attemptsLeft === undefined) attemptsLeft = 200; // 200 × 50ms = 10s
-  const gate = document.getElementById('loginGate');
-  const btn  = document.getElementById('gateLoginBtn');
-  const stat = document.getElementById('gateStatus');
-  const info = document.getElementById('gateSignedIn');
-  if (!gate || !btn || !stat) {
-    // DOM not yet built — try again next tick
-    return setTimeout(() => gateBootstrap(attemptsLeft - 1), 50);
-  }
-  function setStatus(msg, isError){
-    stat.textContent = msg || '';
-    stat.classList.toggle('error', !!isError);
-  }
-  // If MSAL failed to load entirely, surface a clear message
-  if (typeof msal === 'undefined') {
-    if (attemptsLeft <= 0) {
-      btn.disabled = true;
-      setStatus('Failed to load Microsoft authentication library. Check that your network allows cdnjs / jsdelivr. (' + (window.__msalLoadError || 'unknown') + ')', true);
-      return;
-    }
-    return setTimeout(() => gateBootstrap(attemptsLeft - 1), 50);
-  }
-  // MSAL loaded — wire up the button and try to restore session
-  btn.disabled = false;
-  setStatus('Checking sign-in status…');
-  btn.onclick = async function(){
-    btn.disabled = true;
-    setStatus('Redirecting to Microsoft sign-in…');
-    try { await window.spSignIn(); }
-    catch(e){
-      setStatus('Sign-in failed: ' + (e.message || e), true);
-      btn.disabled = false;
-    }
-  };
-  _spInit().then(instance => {
-    if (!instance) {
-      setStatus('Authentication initialization failed — refresh and try again.', true);
-      return;
-    }
-    const acc = _spCurrentAccount();
-    if (acc) {
-      // Already signed in (cached or just returned from redirect) — open the app
-      setStatus('');
-      info.style.display = 'block';
-      info.innerHTML = '✓ Signed in as <strong>' + (acc.name || acc.username) + '</strong>';
-      // Brief delay so the success message is readable, then show client picker
-      setTimeout(() => {
-        gate.style.transition = 'opacity .25s';
-        gate.style.opacity = '0';
-        setTimeout(() => {
-          gate.style.display = 'none';
-          // Show the client picker right away so the user lands on the
-          // saved-records list instead of an empty form.
-          if (typeof window.pickerOpen === 'function') {
-            window.pickerOpen().catch(e => console.warn('[Gate] picker open:', e));
-          }
-        }, 280);
-      }, 600);
-    } else {
-      // Not signed in — wait for user to click the button
-      setStatus('Please sign in with your ODC Microsoft 365 account.');
-    }
-  }).catch(e => {
-    console.error('[Gate] init failed:', e);
-    setStatus('Initialization error: ' + (e.message || e), true);
-  });
-})();
+});
 
 </script>
 
 
 <!-- ── Save / Resume Progress ── -->
 <div id="wfSaveBtn" class="no-print" style="position:fixed; bottom:24px; left:24px; z-index:9997;">
-  <button onclick="saveToSharePoint()" style="background:#0078d4; color:#fff; border:none; padding:11px 22px; border-radius:8px; font-size:.88rem; font-weight:600; cursor:pointer; box-shadow:0 4px 14px rgba(0,120,212,0.28); display:flex; align-items:center; gap:8px;" onmouseover="this.style.background='#106ebe'" onmouseout="this.style.background='#0078d4'">☁️ Save to Cloud</button>
+  <button onclick="openSaveModal()" style="background:#fff; color:#4a7a3c; border:1.5px solid #4a7a3c; padding:10px 16px; border-radius:8px; font-size:.85rem; font-weight:600; cursor:pointer; box-shadow:0 4px 12px rgba(0,0,0,0.1);">💾 Save Progress</button>
 </div>
+
+<!-- (Legacy duplicate Save modal + IIFE removed — was overriding the new sig-aware Save flow above. The floating "💾 Save Progress" button now opens the unified modal at #saveBackdrop.) -->
 
 
 <!-- ── Cross-form Participant Info auto-fill (reads from launcher's localStorage) ── -->
