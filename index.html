@@ -1540,6 +1540,7 @@
       <button class="btn btn-odc btn-sm" onclick="applyAll()">✍️ Apply Signature to ALL Fields</button>
       <button class="btn btn-sm" style="background:#0078d4; color:#fff; border:none; font-weight:600; padding:7px 14px; border-radius:6px;" onclick="cfOpen()" title="Create the signed PDF and save it straight into the client's SharePoint folder — no download needed">☁️ Save PDF to Client Folder</button>
       <button class="btn btn-sm" style="background:#fff; color:#0b6b5c; border:1.5px solid #0b8a76; font-weight:600; padding:7px 14px; border-radius:6px;" onclick="odcOpenCarePlan()" title="Saves this agreement record, then opens (or starts) this client's Care Plan with these details filled in">🩺 Care Plan</button>
+      <button class="btn btn-sm" style="background:#fff; color:#3a6330; border:1.5px solid #4a7a3c; font-weight:600; padding:7px 14px; border-radius:6px;" onclick="odcOpenOnboarding()" title="Saves this agreement record, then opens (or starts) this client's onboarding forms with these details filled in">📋 Onboarding</button>
       <button class="btn btn-sm" style="background:#5b3a8e; color:#fff; border:none; font-weight:600; padding:7px 14px; border-radius:6px;" onclick="emailPdf()">📧 Email PDF</button>
       <button class="btn btn-odc btn-sm" onclick="openPrintModal()" title="Print directly, or choose 'Save as PDF' in the print dialog to download a PDF">🖨️ Print / Save as PDF</button>
       <button class="btn btn-sm" onclick="clearAllAndReload(true)" title="Wipe all data and start fresh for a new participant" style="background:#fff; color:#a64b1a; border:1.5px solid #d99656; font-weight:600;">🗑 Clear All</button>
@@ -6956,7 +6957,7 @@ function _spUpdateUi(){
       <h3 id="cfTitle">☁️ Save signed PDF to client folder</h3>
       <button type="button" class="cf-x" onclick="cfClose()" aria-label="Close">&times;</button>
     </div>
-    <p class="cf-sub">The PDF is created here and saved straight into the client's SharePoint folder — nothing to download or upload by hand. The form record (with signatures) is saved to the cloud at the same time.</p>
+    <p class="cf-sub">The PDFs are created here and saved straight into the client's SharePoint folder — nothing to download or upload by hand. The form record (with signatures) is saved to the cloud at the same time.</p>
     <div id="cfSigLine" class="cf-sig"></div>
 
     <div class="cf-step">1 · Client folder <span>— in “ODC Home Care Clients”</span></div>
@@ -7004,6 +7005,65 @@ const _wait = ms => new Promise(r => setTimeout(r, ms));
 const _raf  = () => new Promise(r => requestAnimationFrame(() => r()));
 const _esc  = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const _el   = id => document.getElementById(id);
+
+// ── This app: the Service Agreement ──────────────────────────────────────
+function _clientName(){ const e = _el('f_name'); return e && e.value ? e.value.trim() : ''; }
+function _isV16(){ try { return typeof getAgreementVersion === 'function' && getAgreementVersion() === 'v16'; } catch(e){ return false; } }
+function _isSelfManaged(){ const r = document.querySelector('input[name="contractType"]:checked'); return !!(r && r.value === 'selfmanaged'); }
+function _docChecked(target){ return Array.prototype.some.call(document.querySelectorAll('.docpick[data-target="' + target + '"]'), c => c.checked); }
+const APP = {
+  kind: 'agreement',
+  containerId: 'docsContainer',
+  cardSelector: '.doc-card',
+  pdfClass: 'pdf-rendering',          // the page's own PDF layout (A4 width, print-style fields)
+  // The documents only exist on Step 3. Returns true if it had to switch there.
+  ensureVisible(){
+    const p = _el('panel3');
+    if (p && !p.classList.contains('active') && typeof goTo === 'function') { goTo(3); return true; }
+    return false;
+  },
+  showOnly(all, wanted, undo){
+    all.forEach(c => { const prev = c.style.display; undo.push(() => { c.style.display = prev; }); c.style.display = wanted.indexOf(c) !== -1 ? 'block' : 'none'; });
+  },
+  clientName: _clientName,
+  footerLabels(){
+    return {
+      'doc-5': (_isSelfManaged() ? 'Self-managed ' : '') + 'Support at Home Service Agreement - ' + (_isV16() ? 'V1.6 OCT 2026' : 'V1.5 JUN 2026'),
+      'doc-6': 'Letter of Variation - Personal Care contribution (1 October 2026)'
+    };
+  },
+  defaultDocs(){
+    const name = _clientName() || 'Client';
+    const ver = _isV16() ? 'V1.6' : 'V1.5';
+    const lov = typeof _lovChecked === 'function' && _lovChecked();
+    const docs = [];
+    if (_el('doc-5')) docs.push({ cardId: 'doc-5', title: 'Service Agreement', sub: (_isSelfManaged() ? 'Self-managed' : 'All States') + ' · ' + ver,
+      filename: '00. ' + name + '_' + (_isSelfManaged() ? 'Self-managed' : 'Full-managed') + ' Support at Home Service Agreement_' + ver + '.pdf',
+      checked: _docChecked('doc-5') || !lov });
+    if (_el('doc-6') && lov) docs.push({ cardId: 'doc-6', title: 'Letter of Variation', sub: 'Personal Care contribution · 1 Oct 2026',
+      filename: '00. ' + name + '_Letter of Variation_Personal Care (1 Oct 2026).pdf', checked: true });
+    return docs;
+  },
+  noSigHint: 'To include signatures, close this, sign in Step 2 and click <strong>Apply Signature to ALL Fields</strong> in Step 3, then save.',
+  // Write the current form + signatures to this browser's storage right now,
+  // so nothing is lost if Microsoft asks for a fresh sign-in mid-save.
+  flushLocalDraft(){
+    const full = _collectFull();
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ values: full.v, sig: full.sig, doc: full.doc || {}, savedAt: new Date().toISOString() }));
+  },
+  // The folder a client's PDFs go to is remembered inside the form record (docInputCache)
+  getDest(){ return window.docInputCache && window.docInputCache.__spDest; },
+  setDest(dest, client){
+    window.docInputCache = window.docInputCache || {};
+    window.docInputCache.__spDest = dest;
+    if (client) window.docInputCache.__spClient = client;
+  },
+  afterSaveHtml(){
+    return '<br>Next: <a href="#" data-applink="onboarding">Onboarding forms →</a> &nbsp;·&nbsp; <a href="#" data-applink="careplan">Care Plan →</a>';
+  },
+  onAppLink(which){ if (which === 'careplan') window.odcOpenCarePlan(); else if (which === 'onboarding') window.odcOpenOnboarding(); }
+};
+
 
 // ════════════════════════════════════════════════════════════════════════
 // PART 1 — PDF BUILDER
@@ -7072,7 +7132,7 @@ function _shimInputs(cards, undo){
 }
 
 // Work out where each page of one document starts and ends (CSS px, measured
-// from the top of #docsContainer) so that no line of text, table row,
+// from the top of the documents container) so that no line of text, table row,
 // signature or field is cut in half.
 function _pageSlices(card, originTop, pageH){
   const cr = card.getBoundingClientRect();
@@ -7092,7 +7152,7 @@ function _pageSlices(card, originTop, pageH){
       if (r.width > 0 && r.height > 0) add(r.top - originTop, r.bottom - originTop);
     }
   }
-  card.querySelectorAll('img, svg, input, .sig-slot, .odc-pdf-shim, tr, .doc-cover').forEach(el => {
+  card.querySelectorAll('img, svg, input, .sig-slot, .odc-pdf-shim, tr, .doc-cover, .declaration, .alerts-title').forEach(el => {
     const r = el.getBoundingClientRect();
     if (!r.width || !r.height || r.height > pageH * 0.8) return;
     add(r.top - originTop, r.bottom - originTop);
@@ -7118,7 +7178,7 @@ function _pageSlices(card, originTop, pageH){
     }
     add(r.top - originTop, firstBottom - originTop);
   };
-  card.querySelectorAll('h1,h2,h3,h4,h5,h6,.doc-section-h,.form-section-title,summary,.doc-card-header').forEach(keepWithNext);
+  card.querySelectorAll('h1,h2,h3,h4,h5,h6,.doc-section-h,.sub-h,.form-section-title,summary,.doc-card-header').forEach(keepWithNext);
   card.querySelectorAll('p').forEach(p => {
     if (p.children.length === 1 && p.firstElementChild.tagName === 'STRONG'
         && p.textContent.trim() === p.firstElementChild.textContent.trim() && p.textContent.length < 110) keepWithNext(p);
@@ -7168,7 +7228,7 @@ function _canvasIsBlank(canvas){
   } catch(e) { return false; }
 }
 
-// cardIds: ['doc-5'] / ['doc-6'] / both.  Returns { blob, pages }.
+// cardIds: ids of the document sections to draw, in order.  Returns { blob, pages }.
 async function odcRenderPdf(cardIds, opts){
   opts = opts || {};
   const progress = typeof opts.onProgress === 'function' ? opts.onProgress : function(){};
@@ -7176,23 +7236,22 @@ async function odcRenderPdf(cardIds, opts){
   if (!jsPDFClass) throw new Error('The PDF library (jsPDF) did not load. Refresh the page and try again.');
   if (typeof window.html2canvas !== 'function') throw new Error('The PDF library (html2canvas) did not load. Refresh the page and try again.');
 
-  const panel3 = _el('panel3');
-  if (panel3 && !panel3.classList.contains('active') && typeof goTo === 'function') { goTo(3); await _wait(150); }
-  const container = _el('docsContainer');
-  const allCards = Array.prototype.slice.call(container.querySelectorAll('.doc-card'));
+  if (APP.ensureVisible && APP.ensureVisible()) await _wait(150);
+  const container = _el(APP.containerId);
+  const allCards = Array.prototype.slice.call(container.querySelectorAll(APP.cardSelector));
   const wanted = allCards.filter(c => cardIds.indexOf(c.id) !== -1);
-  if (!wanted.length) throw new Error('The document is not on the page — go to Step 3 and try again.');
+  if (!wanted.length) throw new Error('The document is not on the page.');
 
   const undo = [];
   const prevScrollX = window.scrollX, prevScrollY = window.scrollY;
   const prevBodyOverflow = document.body.style.overflow;
   try {
-    allCards.forEach(c => { const prev = c.style.display; undo.push(() => { c.style.display = prev; }); c.style.display = wanted.indexOf(c) !== -1 ? 'block' : 'none'; });
+    APP.showOnly(allCards, wanted, undo);
     container.querySelectorAll('details:not([open])').forEach(d => { d.setAttribute('open', ''); undo.push(() => d.removeAttribute('open')); });
     document.body.style.overflow = '';
     undo.push(() => { document.body.style.overflow = prevBodyOverflow; });
-    document.body.classList.add('pdf-rendering');
-    undo.push(() => document.body.classList.remove('pdf-rendering'));
+    document.body.classList.add(APP.pdfClass);
+    undo.push(() => document.body.classList.remove(APP.pdfClass));
     window.scrollTo(0, 0);
     await _raf(); await _wait(60);
     _shimInputs(wanted, undo);
@@ -7299,33 +7358,6 @@ const overlay = {
     if (frac != null && _el('cfOverlayBar')) _el('cfOverlayBar').style.width = Math.round(Math.max(0, Math.min(1, frac)) * 100) + '%';
   },
   hide(){ const o = _el('cfOverlay'); if (o) o.style.display = 'none'; }
-};
-
-function _clientName(){ const e = _el('f_name'); return e && e.value ? e.value.trim() : ''; }
-function _isV16(){ try { return typeof getAgreementVersion === 'function' && getAgreementVersion() === 'v16'; } catch(e){ return false; } }
-function _isSelfManaged(){ const r = document.querySelector('input[name="contractType"]:checked'); return !!(r && r.value === 'selfmanaged'); }
-function _docChecked(target){ return Array.prototype.some.call(document.querySelectorAll('.docpick[data-target="' + target + '"]'), c => c.checked); }
-function _footerLabels(){
-  return {
-    'doc-5': (_isSelfManaged() ? 'Self-managed ' : '') + 'Support at Home Service Agreement - ' + (_isV16() ? 'V1.6 OCT 2026' : 'V1.5 JUN 2026'),
-    'doc-6': 'Letter of Variation - Personal Care contribution (1 October 2026)'
-  };
-}
-
-// Used by "📧 Email PDF": one PDF holding whichever documents are ticked.
-window.odcBuildPdfForCurrentSelection = async function(){
-  const ids = [];
-  if (_docChecked('doc-5')) ids.push('doc-5');
-  if (typeof _lovChecked === 'function' && _lovChecked()) ids.push('doc-6');
-  if (!ids.length) ids.push('doc-5');
-  const clientName = _clientName();
-  const nameBit = clientName ? '_' + clientName.replace(/[\\/:*?"<>|#%&{}]/g, '').replace(/\s+/g, '-').slice(0, 40) : '';
-  const filename = (typeof _docSetPrefix === 'function' ? _docSetPrefix() : 'ODC-ServiceAgreement') + nameBit + '_' + new Date().toISOString().slice(0, 10) + '.pdf';
-  overlay.show('Creating PDF…', 'Please keep this page open.');
-  try {
-    const out = await odcRenderPdf(ids, { footerLabels: _footerLabels(), onProgress: p => overlay.set(null, 'Page ' + Math.min(p.done + 1, p.total) + ' of ' + p.total, p.done / p.total) });
-    return { blob: out.blob, filename, clientName, pages: out.pages };
-  } finally { overlay.hide(); }
 };
 
 // ════════════════════════════════════════════════════════════════════════
@@ -7564,40 +7596,35 @@ window.cfCreateFolder = async function(){
 };
 
 function _defaultDocs(){
-  const name = _clientName() || 'Client';
-  const ver = _isV16() ? 'V1.6' : 'V1.5';
-  const docs = [];
-  if (_el('doc-5')) docs.push({ cardId: 'doc-5', title: 'Service Agreement', sub: (_isSelfManaged() ? 'Self-managed' : 'All States') + ' · ' + ver,
-    filename: '00. ' + name + '_' + (_isSelfManaged() ? 'Self-managed' : 'Full-managed') + ' Support at Home Service Agreement_' + ver + '.pdf',
-    checked: _docChecked('doc-5') || !(typeof _lovChecked === 'function' && _lovChecked()) });
-  if (_el('doc-6') && typeof _lovChecked === 'function' && _lovChecked()) docs.push({ cardId: 'doc-6', title: 'Letter of Variation', sub: 'Personal Care contribution · 1 Oct 2026',
-    filename: '00. ' + name + '_Letter of Variation_Personal Care (1 Oct 2026).pdf', checked: true });
-  docs.forEach(d => { d.filename = _safeFileName(d.filename); d.sigs = document.querySelectorAll('#' + d.cardId + ' .sig-slot.applied').length; });
+  const docs = APP.defaultDocs();
+  docs.forEach(d => {
+    d.filename = _safeFileName(d.filename);
+    const card = _el(d.cardId);
+    d.slots = card ? card.querySelectorAll('.sig-slot').length : 0;
+    // a signature counts only if its image is really there (a cleared slot can keep its "applied" look)
+    d.sigs = card ? Array.prototype.filter.call(card.querySelectorAll('.sig-slot img'), i => (i.getAttribute('src') || '').length > 20 && i.style.display !== 'none').length : 0;
+  });
   return docs;
 }
 function _renderDocs(){
   _el('cfDocs').innerHTML = cf.docs.map((d, i) =>
     '<div class="cf-doc"><input type="checkbox" class="nosave" data-doc="' + i + '"' + (d.checked ? ' checked' : '') + '>'
-    + '<div class="body"><div class="ttl">📄 ' + _esc(d.title) + ' <small>— ' + _esc(d.sub) + ' · ' + (d.sigs ? '✍️ ' + d.sigs + ' signature' + (d.sigs > 1 ? 's' : '') + ' on it' : '⚠ not signed yet') + '</small></div>'
+    + '<div class="body"><div class="ttl">📄 ' + _esc(d.title) + ' <small>— ' + (d.sub ? _esc(d.sub) + ' · ' : '') + (d.sigs ? '✍️ ' + d.sigs + ' signature' + (d.sigs > 1 ? 's' : '') + ' on it' : (d.slots ? '⚠ not signed yet' : 'no signature needed')) + '</small></div>'
     + '<input type="text" class="nosave" data-docname="' + i + '" value="' + _esc(d.filename) + '" autocomplete="off"></div></div>').join('')
-    || '<div class="cf-empty">Go to Step 3 first so the document is on the page.</div>';
+    || '<div class="cf-empty">There is no document on the page to save yet.</div>';
   const total = cf.docs.reduce((n, d) => n + d.sigs, 0);
   const sig = _el('cfSigLine');
-  if (total) { sig.className = 'cf-sig'; sig.innerHTML = '✍️ <strong>' + total + '</strong> signature' + (total > 1 ? 's are' : ' is') + ' placed on the document' + (cf.docs.length > 1 ? 's' : '') + ' and will be in the PDF.'; }
-  else { sig.className = 'cf-sig warn'; sig.innerHTML = '⚠ <strong>No signature has been placed yet.</strong> To include signatures, close this, sign in Step 2 and click <strong>Apply Signature to ALL Fields</strong> in Step 3, then save. You can still save an unsigned copy.'; }
+  if (!cf.docs.some(d => d.slots)) { sig.className = 'cf-sig'; sig.innerHTML = 'Everything typed into the form' + (cf.docs.length > 1 ? 's' : '') + ' will be in the PDF.'; }
+  else if (total) { sig.className = 'cf-sig'; sig.innerHTML = '✍️ <strong>' + total + '</strong> signature' + (total > 1 ? 's are' : ' is') + ' placed on the document' + (cf.docs.length > 1 ? 's' : '') + ' and will be in the PDF.'; }
+  else { sig.className = 'cf-sig warn'; sig.innerHTML = '⚠ <strong>No signature has been placed yet.</strong> ' + APP.noSigHint + ' You can still save an unsigned copy.'; }
 }
 function _readDocs(){
   document.querySelectorAll('#cfDocs [data-doc]').forEach(c => { const d = cf.docs[+c.getAttribute('data-doc')]; if (d) d.checked = c.checked; });
   document.querySelectorAll('#cfDocs [data-docname]').forEach(c => { const d = cf.docs[+c.getAttribute('data-docname')]; if (d) d.filename = _safeFileName(c.value); });
 }
 
-// Write the current form + signatures to this browser's storage right now,
-// so nothing is lost if Microsoft asks for a fresh sign-in mid-save.
 function _flushLocalDraft(){
-  try {
-    const full = _collectFull();
-    localStorage.setItem(SAVE_KEY, JSON.stringify({ values: full.v, sig: full.sig, doc: full.doc || {}, savedAt: new Date().toISOString() }));
-  } catch(e) { console.warn('[ClientFolder] local draft flush failed:', e); }
+  try { APP.flushLocalDraft(); } catch(e) { console.warn('[ClientFolder] local draft flush failed:', e); }
 }
 
 window.cfOpen = async function(){
@@ -7605,8 +7632,7 @@ window.cfOpen = async function(){
     if (typeof _showToast === 'function') _showToast('Please sign in with your ODC Microsoft 365 account first.', 'error');
     return;
   }
-  const panel3 = _el('panel3');
-  if (panel3 && !panel3.classList.contains('active') && typeof goTo === 'function') goTo(3);
+  if (APP.ensureVisible) APP.ensureVisible();
   cf.busy = false; cf.saved = false; cf.conflictChoice = null; cf.results = null; cf.stack = []; cf.items = [];
   _el('cfConflict').style.display = 'none';
   _el('cfCancelBtn').textContent = 'Cancel';
@@ -7614,14 +7640,14 @@ window.cfOpen = async function(){
   _status('', '');
   cf.docs = _defaultDocs();
   _renderDocs();
-  _el('cfQuery').value = _clientName();
+  _el('cfQuery').value = APP.clientName();
   _el('cfBackdrop').classList.add('show');
   document.body.style.overflow = 'hidden';
   _render();
   _flushLocalDraft();
   try {
     // Destination remembered from the last time this client's record was saved
-    const mem = window.docInputCache && window.docInputCache.__spDest;
+    const mem = APP.getDest();
     if (mem && mem.id && Array.isArray(mem.crumbs) && mem.crumbs.length) {
       try {
         const drive = await _getDrive();
@@ -7635,7 +7661,7 @@ window.cfOpen = async function(){
         cf.stack = [];
       }
     }
-    if (_clientName()) await window.cfSearch(); else await window.cfBrowseRoot();
+    if (APP.clientName()) await window.cfSearch(); else await window.cfBrowseRoot();
   } catch(e) { _handleErr(e, 'Could not open the client library'); }
 };
 
@@ -7668,7 +7694,7 @@ window.cfSave = async function(){
   const docs = cf.docs.filter(d => d.checked);
   if (!docs.length) { _status('Tick at least one document to save.', 'error'); return; }
   if (docs.some(d => !d.filename)) { _status('Every document needs a file name.', 'error'); return; }
-  if (docs.length > 1 && docs[0].filename.toLowerCase() === docs[1].filename.toLowerCase()) { _status('The two documents need different file names.', 'error'); return; }
+  if (docs.some((d, i) => docs.findIndex(x => x.filename.toLowerCase() === d.filename.toLowerCase()) !== i)) { _status('Each document needs a different file name.', 'error'); return; }
 
   cf.busy = true;
   _el('cfSaveBtn').disabled = true;
@@ -7685,11 +7711,10 @@ window.cfSave = async function(){
 
     // Remember this folder with the client's record, then save the record itself
     try {
-      window.docInputCache = window.docInputCache || {};
-      window.docInputCache.__spDest = { id: dest.id, crumbs: cf.stack.map(c => ({ id: c.id || null, name: c.name, path: (typeof c.path === 'string' ? c.path : null), webUrl: c.webUrl || '', client: !!c.client })) };
-      // The client's own folder is the key the Care Plan app uses to recognise the same client
-      const cc = _clientCrumb();
-      if (cc) window.docInputCache.__spClient = cc;
+      APP.setDest(
+        { id: dest.id, crumbs: cf.stack.map(c => ({ id: c.id || null, name: c.name, path: (typeof c.path === 'string' ? c.path : null), webUrl: c.webUrl || '', client: !!c.client })) },
+        _clientCrumb()   // the client's own folder: the key other apps use to recognise the same client
+      );
     } catch(e){}
     _status('Saving the form record (with signatures) to the cloud…', 'info');
     try { if (typeof window.saveToSharePoint === 'function') await window.saveToSharePoint(); }
@@ -7700,7 +7725,7 @@ window.cfSave = async function(){
       const step = docs.length > 1 ? ' (' + (i + 1) + ' of ' + docs.length + ')' : '';
       overlay.show('Creating PDF — ' + d.title + step, 'Laying out pages…');
       const out = await odcRenderPdf([d.cardId], {
-        footerLabels: _footerLabels(),
+        footerLabels: APP.footerLabels(),
         onProgress: p => overlay.set(null, p.done < p.total ? 'Page ' + (p.done + 1) + ' of ' + p.total : 'Finishing…', p.done / p.total * 0.9)
       });
       overlay.set('Saving to SharePoint' + step + '…', d.filename + ' · ' + out.pages + ' pages · ' + _fmtSize(out.blob.size), 0.95);
@@ -7716,9 +7741,9 @@ window.cfSave = async function(){
     const where = cf.stack.map(c => c.name).join(' › ');
     _status('✓ <strong>Saved to SharePoint</strong> — ' + _esc(where) + '<br>'
       + results.map(r => '• <a href="' + _esc(r.item.webUrl || '#') + '" target="_blank" rel="noopener">' + _esc(r.item.name || r.d.filename) + '</a> — '
-          + r.pages + ' pages, ' + _fmtSize(r.size) + (r.d.sigs ? ', ' + r.d.sigs + ' signature' + (r.d.sigs > 1 ? 's' : '') : ', unsigned')).join('<br>')
+          + r.pages + ' pages, ' + _fmtSize(r.size) + (r.d.sigs ? ', ' + r.d.sigs + ' signature' + (r.d.sigs > 1 ? 's' : '') : (r.d.slots ? ', unsigned' : ''))).join('<br>')
       + (dest.webUrl ? '<br><a href="' + _esc(dest.webUrl) + '" target="_blank" rel="noopener">Open the folder in SharePoint ↗</a>' : '')
-      + '<br><a href="#" data-careplan="1">Next: open this client’s Care Plan →</a>', 'ok');
+      + (APP.afterSaveHtml ? APP.afterSaveHtml() : ''), 'ok');
     _el('cfCancelBtn').textContent = 'Close';
     _el('cfSaveBtn').textContent = '✓ Saved';
     try { await _load(); } catch(e){}
@@ -7743,9 +7768,9 @@ window.cfSave = async function(){
 document.addEventListener('click', async function(ev){
   const back = _el('cfBackdrop');
   if (!back || !back.classList.contains('show') || cf.busy) return;
-  const t = ev.target.closest ? ev.target.closest('[data-folder],[data-result],[data-crumb],[data-conflict],[data-careplan]') : null;
+  const t = ev.target.closest ? ev.target.closest('[data-folder],[data-result],[data-crumb],[data-conflict],[data-applink]') : null;
   if (!t || !back.contains(t)) return;
-  if (t.hasAttribute('data-careplan')) { ev.preventDefault(); window.odcOpenCarePlan(); return; }
+  if (t.hasAttribute('data-applink')) { ev.preventDefault(); if (APP.onAppLink) APP.onAppLink(t.getAttribute('data-applink')); return; }
   try {
     if (t.hasAttribute('data-conflict')) {
       cf.conflictChoice = t.getAttribute('data-conflict');
@@ -7782,18 +7807,222 @@ document.addEventListener('keydown', function(ev){
 });
 
 
+
 // ════════════════════════════════════════════════════════════════════════
-// PART 4 — LINK WITH THE CARE PLAN APP
-// The agreement comes first, so this app is the source of the participant's
-// details. Every cloud save now also carries a named copy of those details
-// (the form itself is stored by position, which another app cannot read
-// safely) plus the client's SharePoint folder. The Care Plan app reads that
-// record, fills its assessment, and recognises the same client by the folder.
-//   contract-client/?open=<record file>   opens that saved agreement
-//   careplan/?sa=<record file>            opens / starts that client's care plan
+// SHARED BY THE ODC FORM APPS (Service Agreement · Onboarding forms)
+// Both apps sign in the same way and keep their records in the same place:
+//   Service Agreement Records/ODC-Agreement_<Client-Name>.json
+//   Service Agreement Records/Onboarding/ODC-Onboarding_<Client-Name>.json
+// A record's form values are stored by position, which another app cannot
+// read, so each cloud save also carries a named copy ("shared": the
+// data-shared fields — the same key is the same piece of participant
+// information in every app) and the client's SharePoint folder.
 // ════════════════════════════════════════════════════════════════════════
-const CAREPLAN_URL = 'https://onedream-hy.github.io/careplan/';
+const RECORDS_ROOT = 'Service Agreement Records';
+const APP_URLS = {
+  agreement:  'https://onedream-hy.github.io/contract-client/',
+  onboarding: 'https://onedream-hy.github.io/onboarding_new/',
+  careplan:   'https://onedream-hy.github.io/careplan/'
+};
+const KIND_LABEL = { agreement: 'Service Agreement', onboarding: 'onboarding forms' };
+
+function _toast(html, kind){
+  if (typeof _showToast === 'function') return _showToast(html, kind);
+  if (typeof _showRestoreToast === 'function') return _showRestoreToast(html, kind === 'error');
+}
+function _slug(name){ return String(name || '').trim().replace(/[\\/:*?"<>|#%&{}]/g, '').replace(/\s+/g, '-').slice(0, 60); }
+function _recordFile(kind, name){ const g = _slug(name); return g ? (kind === 'onboarding' ? 'ODC-Onboarding_' : 'ODC-Agreement_') + g + '.json' : ''; }
+function _recordPath(kind, file){ return RECORDS_ROOT + (kind === 'onboarding' ? '/Onboarding/' : '/') + file; }
+function _clientFromFile(file){
+  const m = /^ODC-(?:Agreement|Onboarding)_(.+)\.json$/i.exec(String(file || ''));
+  return (!m || /^Untitled-by-/i.test(m[1])) ? '' : m[1].replace(/-+/g, ' ').trim();
+}
+function _validRecordName(file){ return /\.json$/i.test(file || '') && !/[\\/]/.test(file); }
+
+// null when the record does not exist
+async function _recordMeta(kind, file){
+  const driveId = await _spGetDriveId();
+  try { return await (await _graph(G + '/drives/' + driveId + '/root:/' + _spEncodePath(_recordPath(kind, file)))).json(); }
+  catch(e) { if (/Graph 404/.test((e && e.message) || '')) return null; throw e; }
+}
+async function _readRecord(kind, file){
+  const meta = await _recordMeta(kind, file);
+  if (!meta) return null;
+  const dl = meta['@microsoft.graph.downloadUrl'] || meta['@content.downloadUrl'];
+  const res = dl ? await fetch(dl) : await _graph(G + '/drives/' + (await _spGetDriveId()) + '/items/' + meta.id + '/content');
+  if (!res.ok) throw new Error('Could not download ' + file + ' (' + res.status + ').');
+  return { meta: meta, data: await res.json() };
+}
+
+function _sharedMap(){
+  const out = {};
+  document.querySelectorAll('[data-shared]').forEach(el => {
+    if (el.type === 'checkbox' || el.type === 'radio') return;
+    const k = el.getAttribute('data-shared'), v = String(el.value || '').trim();
+    if (v && !out[k]) out[k] = v;
+  });
+  return out;
+}
+// Returns how many different pieces of information were filled in.
+function _applyShared(map, onlyEmpty){
+  if (!map) return 0;
+  const done = {};
+  document.querySelectorAll('[data-shared]').forEach(el => {
+    if (el.type === 'checkbox' || el.type === 'radio') return;
+    const k = el.getAttribute('data-shared'), v = map[k];
+    if (v == null || String(v).trim() === '') return;
+    if (onlyEmpty && String(el.value || '').trim() !== '') return;
+    if (el.value === String(v)) return;
+    el.value = String(v);
+    try { el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); } catch(e){}
+    done[k] = 1;
+  });
+  return Object.keys(done).length;
+}
+
+// "Jane Kim (daughter) 0412 345 678"  <->  { name, rel, phone }
+function _splitContact(text){
+  let t = String(text || '').trim();
+  const out = { name: '', rel: '', phone: '' };
+  if (!t) return out;
+  const ph = t.match(/\+?\(?\d[\d\s().\-]{6,}\d/);
+  if (ph) { out.phone = ph[0].trim(); t = t.replace(ph[0], ' '); }
+  const rel = t.match(/\(([^()\d]{2,40})\)/);
+  if (rel) { out.rel = rel[1].trim(); t = t.replace(rel[0], ' '); }
+  out.name = t.replace(/\b(ph|phone|mob|mobile|tel|m|p)\s*[:.]?\s*$/i, ' ')
+              .replace(/[\s,;:\/|–—-]+$/g, '').replace(/^[\s,;:\/|–—-]+/g, '').replace(/\s{2,}/g, ' ').trim();
+  return out;
+}
+function _joinContact(name, rel, phone){
+  name = String(name || '').trim(); rel = String(rel || '').trim(); phone = String(phone || '').trim();
+  return [name + (name && rel ? ' (' + rel + ')' : ''), phone].filter(Boolean).join(' ');
+}
+
+// A link from another app (…/?param=<record file>): remember it across the Microsoft sign-in.
+function _stashParam(param, key){
+  try { const v = new URLSearchParams(location.search).get(param); if (v) sessionStorage.setItem(key, v); } catch(e){}
+}
+function _takeParam(param, key){
+  let v = null;
+  try { v = sessionStorage.getItem(key); } catch(e){}
+  if (!v) return null;
+  if (typeof _spCurrentAccount !== 'function' || !_spCurrentAccount()) return null;     // keep it until signed in
+  try { sessionStorage.removeItem(key); } catch(e){}
+  try {
+    const u = new URL(location.href);
+    if (u.searchParams.has(param)) { u.searchParams.delete(param); history.replaceState(null, '', u.pathname + (u.search || '') + (u.hash || '')); }
+  } catch(e){}
+  return _validRecordName(v) ? v : null;
+}
+
+// Save this form's record to the cloud and return its file name (throws if it did not save).
+async function _saveRecordNow(){
+  const t0 = Date.now();
+  _flushLocalDraft();
+  await window.saveToSharePoint();
+  const last = window.__lastCloudSave;
+  if (!last || !last.name || last.at < t0) throw new Error('This form could not be saved to the cloud, so the other app has nothing to read yet.');
+  return last.name;
+}
+
+// Open another ODC app for the same client. The tab is opened inside the click
+// (otherwise the browser blocks it as a pop-up) and pointed at the app once
+// this form's record has been saved.
+async function _openApp(label, makeUrl){
+  if (typeof _spCurrentAccount !== 'function' || !_spCurrentAccount()) { _toast('Please sign in with your ODC Microsoft 365 account first.', 'error'); return; }
+  if (!APP.clientName()) { _toast('Enter the client’s <strong>name</strong> first — the two forms are matched by their saved records.', 'error'); return; }
+  let w = null;
+  try {
+    w = window.open('', '_blank');
+    if (w) w.document.write('<title>Opening…</title><p style="font-family:Arial,sans-serif;padding:28px;color:#333">Saving this form, then opening the ' + _esc(label) + '…</p>');
+  } catch(e){}
+  try {
+    const url = await makeUrl(await _saveRecordNow());
+    if (w && !w.closed) w.location.href = url;
+    else _toast('Your browser blocked the new tab. <a href="' + _esc(url) + '" target="_blank" rel="noopener"><strong>Open the ' + _esc(label) + ' →</strong></a>', 'info');
+  } catch(e) {
+    try { if (w && !w.closed) w.close(); } catch(_){}
+    if (/Redirecting for re-authentication/.test((e && e.message) || '')) return;
+    _toast('✗ ' + _esc((e && e.message) || e), 'error');
+  }
+}
+
+// Arriving from the other app with its record: open this client's form here if
+// there is one (filling only the blanks), otherwise start a new one with the
+// details filled in.  opts: { from, to, otherFile, link, toShared(data), afterApply(shared, onlyEmpty), adopt(data, otherFile) }
+async function _arriveFrom(opts){
+  const say = (m, k) => { if (typeof pickerSetStatus === 'function') pickerSetStatus(m, k); };
+  say('📥 Reading the ' + KIND_LABEL[opts.from] + ' record…', 'info');
+  let rec;
+  try { rec = await _readRecord(opts.from, opts.otherFile); }
+  catch(e) { say('Could not read ' + opts.otherFile + ': ' + ((e && e.message) || e), 'error'); return; }
+  if (!rec) { say('“' + opts.otherFile + '” was not found — it may have been renamed or deleted. Pick a record from the list below.', 'error'); return; }
+  const data = rec.data || {};
+  const got = opts.toShared(data, opts.otherFile);       // { shared, complete }
+  const shared = got.shared || {};
+  const name = shared.p_name || _clientFromFile(opts.otherFile);
+  const mine = (data.links && data.links[opts.to]) || _recordFile(opts.to, name);
+  let meta = null;
+  try { meta = (mine && _validRecordName(mine)) ? await _recordMeta(opts.to, mine) : null; } catch(e) { console.warn('[Link] lookup failed:', e); }
+  const partial = got.complete ? '' : '<br><small>That record was saved before the apps were linked, so only part of it could be read. Open it and press <strong>Save to Cloud</strong> once to bring everything across.</small>';
+  if (meta) {
+    await window.pickerOpenFile(meta.id, meta.name);
+    await _wait(250);
+    const n = _applyShared(shared, true) + (opts.afterApply ? opts.afterApply(shared, true) : 0);
+    opts.adopt(data, opts.otherFile, true);
+    _toast('Opened <strong>' + _esc(name || meta.name) + '</strong>’s ' + KIND_LABEL[opts.to] + '.' + (n ? '<br>' + n + ' blank detail' + (n === 1 ? ' was' : 's were') + ' filled in from the ' + KIND_LABEL[opts.from] + '.' : '') + partial, 'success');
+  } else {
+    if (typeof pickerWipeFormState === 'function') pickerWipeFormState();
+    if (typeof window.pickerClose === 'function') window.pickerClose();
+    const n = _applyShared(shared, false) + (opts.afterApply ? opts.afterApply(shared, false) : 0);
+    opts.adopt(data, opts.otherFile, false);
+    _toast('✓ New ' + KIND_LABEL[opts.to] + ' started for <strong>' + _esc(name || 'this client') + '</strong> — ' + n + ' detail' + (n === 1 ? '' : 's') + ' filled in from the ' + KIND_LABEL[opts.from] + '.' + partial, 'success');
+    if (typeof autoSaveDebounced === 'function') autoSaveDebounced();
+  }
+}
+
+// Open one of this app's own records named in the link (…/?open=<record file>).
+async function _openOwnRecord(kind, file){
+  const say = (m, k) => { if (typeof pickerSetStatus === 'function') pickerSetStatus(m, k); };
+  say('📥 Opening ' + file + '…', 'info');
+  try {
+    const meta = await _recordMeta(kind, file);
+    if (!meta) { say('“' + file + '” was not found in the saved forms — it may have been renamed or deleted. Pick it from the list below.', 'error'); return; }
+    await window.pickerOpenFile(meta.id, meta.name);
+  } catch(e) { say('Could not open ' + file + ': ' + ((e && e.message) || e), 'error'); }
+}
+
+// Used by "📧 Email PDF": one PDF holding whichever documents are ticked.
+window.odcBuildPdfForCurrentSelection = async function(){
+  const ids = [];
+  if (_docChecked('doc-5')) ids.push('doc-5');
+  if (typeof _lovChecked === 'function' && _lovChecked()) ids.push('doc-6');
+  if (!ids.length) ids.push('doc-5');
+  const clientName = _clientName();
+  const nameBit = clientName ? '_' + clientName.replace(/[\\/:*?"<>|#%&{}]/g, '').replace(/\s+/g, '-').slice(0, 40) : '';
+  const filename = (typeof _docSetPrefix === 'function' ? _docSetPrefix() : 'ODC-ServiceAgreement') + nameBit + '_' + new Date().toISOString().slice(0, 10) + '.pdf';
+  overlay.show('Creating PDF…', 'Please keep this page open.');
+  try {
+    const out = await odcRenderPdf(ids, { footerLabels: APP.footerLabels(), onProgress: p => overlay.set(null, 'Page ' + Math.min(p.done + 1, p.total) + ' of ' + p.total, p.done / p.total) });
+    return { blob: out.blob, filename, clientName, pages: out.pages };
+  } finally { overlay.hide(); }
+};
+
+// ════════════════════════════════════════════════════════════════════════
+// LINKS TO THE OTHER ODC APPS
+//   contract-client/?open=<agreement record>    opens that saved agreement
+//   contract-client/?ob=<onboarding record>     opens this client's agreement, or starts
+//                                               one with the onboarding details filled in
+//   onboarding_new/?sa=<agreement record>       the same, the other way round
+//   careplan/?sa=<agreement record>             opens / starts that client's care plan
+// ════════════════════════════════════════════════════════════════════════
 const OPEN_KEY = 'odc_sa_open_record';
+const OB_KEY   = 'odc_sa_from_onboarding';
+// Where each shared field sits in an onboarding record saved before the apps were
+// linked (those hold the form by position only). Used only when the record has
+// exactly this many values and the name / date / e-mail land where expected.
+const OB_LEGACY = { count: 406, map: { p_officer: 6, p_docDate: 7, p_name: 8, p_mobile: 12, p_nokName: 13, p_nokPhone: 14, p_nokRel: 15,
+  p_street: 27, p_suburb: 28, p_postcode: 29, p_gpName: 46, p_medCentre: 47, p_medCentrePhone: 48, p_prefName: 49, p_dob: 121, p_acId: 266, p_email: 269, p_legal: 329 } };
 
 function _fv(id){ const e = _el(id); return e && e.value ? String(e.value).trim() : ''; }
 
@@ -7802,6 +8031,13 @@ window.odcRecordExtras = function(){
   let sig = {};
   try { sig = (typeof _collectSigState === 'function') ? _collectSigState() : {}; } catch(e){}
   const placed = ((sig.aClient || []).length + (sig.aRep || []).length) > 0;
+  const cache = window.docInputCache || {};
+  // The onboarding forms hold the next of kin as three boxes; here it is one "name & phone" box
+  const shared = _sharedMap();
+  const nok = _splitContact(_fv('f_emg'));
+  if (nok.name) shared.p_nokName = nok.name;
+  if (nok.phone) shared.p_nokPhone = nok.phone;
+  if (nok.rel) shared.p_nokRel = nok.rel;
   return {
     participant: {
       name: _fv('f_name'), dob: _fv('f_dob'), acId: _fv('f_acId'),
@@ -7817,64 +8053,73 @@ window.odcRecordExtras = function(){
       startDate: _fv('f_startDate'), docDate: _fv('f_docDate'), officer: _fv('f_officer'),
       signed: !!((sig.client || sig.rep) && placed)
     },
-    clientFolder: (window.docInputCache && window.docInputCache.__spClient) || null
+    shared: shared,
+    clientFolder: cache.__spClient || null,
+    spDest: cache.__spDest || null,
+    links: { onboarding: cache.__obFile || null }
   };
 };
 
-// "🩺 Care Plan" — save the record so the Care Plan app reads current details, then open it.
-window.odcOpenCarePlan = async function(){
-  const toast = (m, k) => { if (typeof _showToast === 'function') return _showToast(m, k); };
-  if (typeof _spCurrentAccount !== 'function' || !_spCurrentAccount()) { toast('Please sign in with your ODC Microsoft 365 account first.', 'error'); return; }
-  if (!_clientName()) { toast('Enter the client’s <strong>Full Name</strong> in Step 1 first — the Care Plan is matched to this agreement by its saved record.', 'error'); return; }
-  // Open the tab inside the click itself, otherwise the browser blocks it as a pop-up.
-  let w = null;
-  try {
-    w = window.open('', '_blank');
-    if (w) w.document.write('<title>Opening Care Plan…</title><p style="font-family:Arial,sans-serif;padding:28px;color:#333">Saving the agreement record, then opening the Care Plan…</p>');
-  } catch(e){}
-  const t0 = Date.now();
-  try {
-    _flushLocalDraft();
-    await window.saveToSharePoint();
-    const last = window.__lastCloudSave;
-    if (!last || !last.name || last.at < t0) throw new Error('The agreement record could not be saved to the cloud, so the Care Plan has nothing to read yet.');
-    const url = CAREPLAN_URL + '?sa=' + encodeURIComponent(last.name);
-    if (w && !w.closed) w.location.href = url;
-    else toast('Your browser blocked the new tab. <a href="' + _esc(url) + '" target="_blank" rel="noopener"><strong>Open the Care Plan →</strong></a>', 'info');
-  } catch(e) {
-    try { if (w && !w.closed) w.close(); } catch(_){}
-    if (/Redirecting for re-authentication/.test((e && e.message) || '')) return;
-    toast('✗ ' + _esc((e && e.message) || e), 'error');
-  }
+// "🩺 Care Plan" / "📋 Onboarding" — save this record so the other app reads current details, then open it.
+window.odcOpenCarePlan = function(){
+  return _openApp('Care Plan', file => APP_URLS.careplan + '?sa=' + encodeURIComponent(file));
+};
+window.odcOpenOnboarding = function(){
+  return _openApp('onboarding forms', file => APP_URLS.onboarding + '?sa=' + encodeURIComponent(file));
 };
 
-// A link from the Care Plan app: remember which record to open across the Microsoft sign-in.
-try {
-  const want = new URLSearchParams(location.search).get('open');
-  if (want) sessionStorage.setItem(OPEN_KEY, want);
-} catch(e){}
-
-async function _openPendingRecord(){
-  let name = null;
-  try { name = sessionStorage.getItem(OPEN_KEY); } catch(e){}
-  if (!name) return;
-  if (typeof _spCurrentAccount !== 'function' || !_spCurrentAccount()) return;   // keep it until signed in
-  try { sessionStorage.removeItem(OPEN_KEY); } catch(e){}
-  try {
-    const u = new URL(location.href);
-    if (u.searchParams.has('open')) { u.searchParams.delete('open'); history.replaceState(null, '', u.pathname + (u.search || '') + (u.hash || '')); }
-  } catch(e){}
-  if (!/\.json$/i.test(name) || /[\\/]/.test(name)) return;
-  const say = (m, k) => { if (typeof pickerSetStatus === 'function') pickerSetStatus(m, k); };
-  say('📥 Opening ' + name + '…', 'info');
-  try {
-    const driveId = await _spGetDriveId();
-    const meta = await (await _graph(G + '/drives/' + driveId + '/root:/' + _spEncodePath(SP_CONFIG.spFolderPath + '/' + name) + '?$select=id,name')).json();
-    await window.pickerOpenFile(meta.id, meta.name);
-  } catch(e) {
-    if (/Graph 404/.test((e && e.message) || '')) say('The agreement “' + name + '” was not found in the saved forms — it may have been renamed or deleted. Pick it from the list below.', 'error');
-    else say('Could not open ' + name + ': ' + ((e && e.message) || e), 'error');
+// ── arriving from the onboarding app ──
+function _sharedFromOnboarding(data, file){
+  if (data.shared && typeof data.shared === 'object' && String(data.shared.p_name || '').trim()) return { shared: data.shared, complete: true };
+  const fileClient = _clientFromFile(file);
+  const v = data.values;
+  const tidy = x => String(x == null ? '' : x).toLowerCase().replace(/[^a-z0-9À-￿]+/g, '');
+  if (Array.isArray(v) && v.length === OB_LEGACY.count) {
+    const at = k => (typeof v[OB_LEGACY.map[k]] === 'string' ? v[OB_LEGACY.map[k]].trim() : null);
+    const name = at('p_name'), dob = at('p_dob'), email = at('p_email'), pc = at('p_postcode');
+    const ok = name && fileClient && (tidy(name).indexOf(tidy(fileClient)) === 0 || tidy(fileClient).indexOf(tidy(name)) === 0)
+            && dob !== null && (dob === '' || /^\d{4}-\d{2}-\d{2}$/.test(dob))
+            && email !== null && (email === '' || /@/.test(email))
+            && pc !== null && (pc === '' || /^\d{3,4}$/.test(pc));
+    if (ok) {
+      const shared = {};
+      Object.keys(OB_LEGACY.map).forEach(k => { const x = at(k); if (x) shared[k] = x; });
+      return { shared: shared, complete: true };
+    }
   }
+  return { shared: fileClient ? { p_name: fileClient } : {}, complete: false };
+}
+// Emergency contact here is one box; fill it from the onboarding next-of-kin boxes.
+function _fillEmergency(shared, onlyEmpty){
+  const el = _el('f_emg');
+  const text = _joinContact(shared.p_nokName, shared.p_nokRel, shared.p_nokPhone);
+  if (!el || !text || el.value === text) return 0;
+  if (onlyEmpty && String(el.value || '').trim() !== '') return 0;
+  el.value = text;
+  try { el.dispatchEvent(new Event('input', { bubbles: true })); } catch(e){}
+  return 1;
+}
+function _adoptOnboarding(data, file, existing){
+  window.docInputCache = window.docInputCache || {};
+  window.docInputCache.__obFile = file;
+  // Same client, same SharePoint folder — no need to pick it again here
+  if (data.spDest && data.spDest.id && !window.docInputCache.__spDest) window.docInputCache.__spDest = data.spDest;
+  if (data.clientFolder && data.clientFolder.id && !window.docInputCache.__spClient) window.docInputCache.__spClient = data.clientFolder;
+  if (!existing) {
+    const d = _el('f_docDate');
+    if (d && !d.value) { d.value = new Date().toISOString().slice(0, 10); try { d.dispatchEvent(new Event('input', { bubbles: true })); } catch(e){} }
+    try { if (typeof syncAgreementVersion === 'function') syncAgreementVersion(); } catch(e){}
+    if (typeof goTo === 'function') goTo(1);
+  }
+}
+
+_stashParam('open', OPEN_KEY);
+_stashParam('ob', OB_KEY);
+async function _afterPickerOpen(){
+  const own = _takeParam('open', OPEN_KEY);
+  if (own) { await _openOwnRecord('agreement', own); return; }
+  const ob = _takeParam('ob', OB_KEY);
+  if (ob) await _arriveFrom({ from: 'onboarding', to: 'agreement', otherFile: ob, toShared: _sharedFromOnboarding, afterApply: _fillEmergency, adopt: _adoptOnboarding });
 }
 
 // ════════════════════════════════════════════════════════════════════════
@@ -7910,7 +8155,7 @@ if (typeof _origPickerOpen === 'function') {
       }
     } catch(e){}
     const out = await _origPickerOpen.apply(this, arguments);
-    try { await _openPendingRecord(); } catch(e) { console.warn('[Link] open-by-link failed:', e); }
+    try { await _afterPickerOpen(); } catch(e) { console.warn('[Link] open-by-link failed:', e); }
     return out;
   };
 }
