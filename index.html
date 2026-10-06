@@ -1539,6 +1539,7 @@
     <div class="d-flex gap-2 flex-wrap">
       <button class="btn btn-odc btn-sm" onclick="applyAll()">✍️ Apply Signature to ALL Fields</button>
       <button class="btn btn-sm" style="background:#0078d4; color:#fff; border:none; font-weight:600; padding:7px 14px; border-radius:6px;" onclick="cfOpen()" title="Create the signed PDF and save it straight into the client's SharePoint folder — no download needed">☁️ Save PDF to Client Folder</button>
+      <button class="btn btn-sm" style="background:#fff; color:#0b6b5c; border:1.5px solid #0b8a76; font-weight:600; padding:7px 14px; border-radius:6px;" onclick="odcOpenCarePlan()" title="Saves this agreement record, then opens (or starts) this client's Care Plan with these details filled in">🩺 Care Plan</button>
       <button class="btn btn-sm" style="background:#5b3a8e; color:#fff; border:none; font-weight:600; padding:7px 14px; border-radius:6px;" onclick="emailPdf()">📧 Email PDF</button>
       <button class="btn btn-odc btn-sm" onclick="openPrintModal()" title="Print directly, or choose 'Save as PDF' in the print dialog to download a PDF">🖨️ Print / Save as PDF</button>
       <button class="btn btn-sm" onclick="clearAllAndReload(true)" title="Wipe all data and start fresh for a new participant" style="background:#fff; color:#a64b1a; border:1.5px solid #d99656; font-weight:600;">🗑 Clear All</button>
@@ -6401,6 +6402,8 @@ window.saveToSharePoint = async function(){
       sig: full.sig,
       doc: full.doc || {}
     };
+    // Named participant details + client folder, for the Care Plan app (see odcRecordExtras)
+    try { if (typeof window.odcRecordExtras === 'function') Object.assign(payload, window.odcRecordExtras()); } catch(e){}
     const json = JSON.stringify(payload, null, 2);
 
     // Build a deterministic filename per client so re-saving the same client
@@ -6425,15 +6428,18 @@ window.saveToSharePoint = async function(){
     const fullPath = SP_CONFIG.spFolderPath + '/' + filename;
     const url = 'https://graph.microsoft.com/v1.0/drives/' + driveId
       + '/root:/' + _spEncodePath(fullPath) + ':/content';
-    await _graph(url, {
+    const _putRes = await _graph(url, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: json
     });
+    let _savedId = null;
+    try { _savedId = (await _putRes.json()).id || null; } catch(e){}
+    window.__lastCloudSave = { name: filename, itemId: _savedId, at: Date.now() };
     const sigCount = (full.sig.client?1:0) + (full.sig.rep?1:0) + (full.sig.staff?1:0);
     const slotCount = full.sig.aClient.length + full.sig.aRep.length + full.sig.aStaff.length;
     _showRestoreToast('✓ Saved to SharePoint — <strong>' + _spEscapeHtml(filename) + '</strong><br><small>' + full.v.length + ' fields · ' + sigCount + ' signature(s) · ' + slotCount + ' applied slot(s)</small>', false);
-    window.__currentPickerFile = { name: filename };
+    window.__currentPickerFile = { itemId: _savedId, name: filename };
     if (btn) {
       btn.innerHTML = '✓ Saved!';
       setTimeout(() => { btn.innerHTML = restoreBtn; btn.disabled = false; }, 1800);
@@ -7451,8 +7457,9 @@ async function _load(){
   return true;
 }
 
+// autoDescend is true when the folder was picked as "the client's folder" (from a search hit)
 async function _enter(folder, autoDescend){
-  cf.stack.push({ id: folder.id, name: folder.name, webUrl: folder.webUrl || '' });
+  cf.stack.push({ id: folder.id, name: folder.name, webUrl: folder.webUrl || '', client: !!autoDescend });
   if (!(await _load())) return;
   if (autoDescend) {
     const subs = cf.items.filter(v => v.folder);
@@ -7462,6 +7469,19 @@ async function _enter(folder, autoDescend){
       if (hit.length > 1) break;
     }
   }
+}
+
+// Which breadcrumb is the client's own folder (as opposed to "01_Onboarding Documents" inside it)
+function _clientCrumb(){
+  let c = cf.stack.find(x => x.client && x.id);
+  if (!c && cf.stack.length) {
+    const last = cf.stack[cf.stack.length - 1];
+    const isSub = cf.stack.length >= 2 && CF_CONFIG.preferredSubfolders.some(rx => rx.test(last.name));
+    c = isSub ? cf.stack[cf.stack.length - 2] : last;
+  }
+  if (!c || !c.id) return null;
+  const idx = cf.stack.indexOf(c);
+  return { id: c.id, name: c.name, url: c.webUrl || '', path: cf.stack.slice(0, idx).map(x => x.name).join('/') };
 }
 
 function _handleErr(e, what){
@@ -7606,7 +7626,7 @@ window.cfOpen = async function(){
       try {
         const drive = await _getDrive();
         await _graph(G + '/drives/' + drive.id + '/items/' + mem.id + '?$select=id');
-        cf.stack = mem.crumbs.map(c => ({ id: c.id || null, name: c.name, path: c.path || null, webUrl: c.webUrl || '' }));
+        cf.stack = mem.crumbs.map(c => ({ id: c.id || null, name: c.name, path: c.path || null, webUrl: c.webUrl || '', client: !!c.client }));
         await _load();
         _status('Using the folder this client’s PDF was saved to last time.', 'info');
         return;
@@ -7666,7 +7686,10 @@ window.cfSave = async function(){
     // Remember this folder with the client's record, then save the record itself
     try {
       window.docInputCache = window.docInputCache || {};
-      window.docInputCache.__spDest = { id: dest.id, crumbs: cf.stack.map(c => ({ id: c.id || null, name: c.name, path: (typeof c.path === 'string' ? c.path : null), webUrl: c.webUrl || '' })) };
+      window.docInputCache.__spDest = { id: dest.id, crumbs: cf.stack.map(c => ({ id: c.id || null, name: c.name, path: (typeof c.path === 'string' ? c.path : null), webUrl: c.webUrl || '', client: !!c.client })) };
+      // The client's own folder is the key the Care Plan app uses to recognise the same client
+      const cc = _clientCrumb();
+      if (cc) window.docInputCache.__spClient = cc;
     } catch(e){}
     _status('Saving the form record (with signatures) to the cloud…', 'info');
     try { if (typeof window.saveToSharePoint === 'function') await window.saveToSharePoint(); }
@@ -7694,7 +7717,8 @@ window.cfSave = async function(){
     _status('✓ <strong>Saved to SharePoint</strong> — ' + _esc(where) + '<br>'
       + results.map(r => '• <a href="' + _esc(r.item.webUrl || '#') + '" target="_blank" rel="noopener">' + _esc(r.item.name || r.d.filename) + '</a> — '
           + r.pages + ' pages, ' + _fmtSize(r.size) + (r.d.sigs ? ', ' + r.d.sigs + ' signature' + (r.d.sigs > 1 ? 's' : '') : ', unsigned')).join('<br>')
-      + (dest.webUrl ? '<br><a href="' + _esc(dest.webUrl) + '" target="_blank" rel="noopener">Open the folder in SharePoint ↗</a>' : ''), 'ok');
+      + (dest.webUrl ? '<br><a href="' + _esc(dest.webUrl) + '" target="_blank" rel="noopener">Open the folder in SharePoint ↗</a>' : '')
+      + '<br><a href="#" data-careplan="1">Next: open this client’s Care Plan →</a>', 'ok');
     _el('cfCancelBtn').textContent = 'Close';
     _el('cfSaveBtn').textContent = '✓ Saved';
     try { await _load(); } catch(e){}
@@ -7719,8 +7743,9 @@ window.cfSave = async function(){
 document.addEventListener('click', async function(ev){
   const back = _el('cfBackdrop');
   if (!back || !back.classList.contains('show') || cf.busy) return;
-  const t = ev.target.closest ? ev.target.closest('[data-folder],[data-result],[data-crumb],[data-conflict]') : null;
+  const t = ev.target.closest ? ev.target.closest('[data-folder],[data-result],[data-crumb],[data-conflict],[data-careplan]') : null;
   if (!t || !back.contains(t)) return;
+  if (t.hasAttribute('data-careplan')) { ev.preventDefault(); window.odcOpenCarePlan(); return; }
   try {
     if (t.hasAttribute('data-conflict')) {
       cf.conflictChoice = t.getAttribute('data-conflict');
@@ -7756,6 +7781,102 @@ document.addEventListener('keydown', function(ev){
   if (ev.key === 'Enter' && ev.target && ev.target.id === 'cfQuery') { ev.preventDefault(); window.cfSearch(); }
 });
 
+
+// ════════════════════════════════════════════════════════════════════════
+// PART 4 — LINK WITH THE CARE PLAN APP
+// The agreement comes first, so this app is the source of the participant's
+// details. Every cloud save now also carries a named copy of those details
+// (the form itself is stored by position, which another app cannot read
+// safely) plus the client's SharePoint folder. The Care Plan app reads that
+// record, fills its assessment, and recognises the same client by the folder.
+//   contract-client/?open=<record file>   opens that saved agreement
+//   careplan/?sa=<record file>            opens / starts that client's care plan
+// ════════════════════════════════════════════════════════════════════════
+const CAREPLAN_URL = 'https://onedream-hy.github.io/careplan/';
+const OPEN_KEY = 'odc_sa_open_record';
+
+function _fv(id){ const e = _el(id); return e && e.value ? String(e.value).trim() : ''; }
+
+// Merged into the JSON record by saveToSharePoint(). No bank details, no signatures.
+window.odcRecordExtras = function(){
+  let sig = {};
+  try { sig = (typeof _collectSigState === 'function') ? _collectSigState() : {}; } catch(e){}
+  const placed = ((sig.aClient || []).length + (sig.aRep || []).length) > 0;
+  return {
+    participant: {
+      name: _fv('f_name'), dob: _fv('f_dob'), acId: _fv('f_acId'),
+      mobile: _fv('f_mobile'), phone: _fv('f_phone'), email: _fv('f_email'),
+      street: _fv('f_street'), suburb: _fv('f_suburb'), postcode: _fv('f_postcode'),
+      emergency: _fv('f_emg'), alt1: _fv('f_alt1'), alt2: _fv('f_alt2'),
+      legalRep: _fv('f_legal'),
+      supporter: { name: _fv('f_supName'), relationship: _fv('f_supRel'), phone: _fv('f_supPhone'), email: _fv('f_supEmail'), address: _fv('f_supAddr') }
+    },
+    agreement: {
+      variant: _isSelfManaged() ? 'Self-managed' : 'Full-managed',
+      version: _isV16() ? 'V1.6' : 'V1.5',
+      startDate: _fv('f_startDate'), docDate: _fv('f_docDate'), officer: _fv('f_officer'),
+      signed: !!((sig.client || sig.rep) && placed)
+    },
+    clientFolder: (window.docInputCache && window.docInputCache.__spClient) || null
+  };
+};
+
+// "🩺 Care Plan" — save the record so the Care Plan app reads current details, then open it.
+window.odcOpenCarePlan = async function(){
+  const toast = (m, k) => { if (typeof _showToast === 'function') return _showToast(m, k); };
+  if (typeof _spCurrentAccount !== 'function' || !_spCurrentAccount()) { toast('Please sign in with your ODC Microsoft 365 account first.', 'error'); return; }
+  if (!_clientName()) { toast('Enter the client’s <strong>Full Name</strong> in Step 1 first — the Care Plan is matched to this agreement by its saved record.', 'error'); return; }
+  // Open the tab inside the click itself, otherwise the browser blocks it as a pop-up.
+  let w = null;
+  try {
+    w = window.open('', '_blank');
+    if (w) w.document.write('<title>Opening Care Plan…</title><p style="font-family:Arial,sans-serif;padding:28px;color:#333">Saving the agreement record, then opening the Care Plan…</p>');
+  } catch(e){}
+  const t0 = Date.now();
+  try {
+    _flushLocalDraft();
+    await window.saveToSharePoint();
+    const last = window.__lastCloudSave;
+    if (!last || !last.name || last.at < t0) throw new Error('The agreement record could not be saved to the cloud, so the Care Plan has nothing to read yet.');
+    const url = CAREPLAN_URL + '?sa=' + encodeURIComponent(last.name);
+    if (w && !w.closed) w.location.href = url;
+    else toast('Your browser blocked the new tab. <a href="' + _esc(url) + '" target="_blank" rel="noopener"><strong>Open the Care Plan →</strong></a>', 'info');
+  } catch(e) {
+    try { if (w && !w.closed) w.close(); } catch(_){}
+    if (/Redirecting for re-authentication/.test((e && e.message) || '')) return;
+    toast('✗ ' + _esc((e && e.message) || e), 'error');
+  }
+};
+
+// A link from the Care Plan app: remember which record to open across the Microsoft sign-in.
+try {
+  const want = new URLSearchParams(location.search).get('open');
+  if (want) sessionStorage.setItem(OPEN_KEY, want);
+} catch(e){}
+
+async function _openPendingRecord(){
+  let name = null;
+  try { name = sessionStorage.getItem(OPEN_KEY); } catch(e){}
+  if (!name) return;
+  if (typeof _spCurrentAccount !== 'function' || !_spCurrentAccount()) return;   // keep it until signed in
+  try { sessionStorage.removeItem(OPEN_KEY); } catch(e){}
+  try {
+    const u = new URL(location.href);
+    if (u.searchParams.has('open')) { u.searchParams.delete('open'); history.replaceState(null, '', u.pathname + (u.search || '') + (u.hash || '')); }
+  } catch(e){}
+  if (!/\.json$/i.test(name) || /[\\/]/.test(name)) return;
+  const say = (m, k) => { if (typeof pickerSetStatus === 'function') pickerSetStatus(m, k); };
+  say('📥 Opening ' + name + '…', 'info');
+  try {
+    const driveId = await _spGetDriveId();
+    const meta = await (await _graph(G + '/drives/' + driveId + '/root:/' + _spEncodePath(SP_CONFIG.spFolderPath + '/' + name) + '?$select=id,name')).json();
+    await window.pickerOpenFile(meta.id, meta.name);
+  } catch(e) {
+    if (/Graph 404/.test((e && e.message) || '')) say('The agreement “' + name + '” was not found in the saved forms — it may have been renamed or deleted. Pick it from the list below.', 'error');
+    else say('Could not open ' + name + ': ' + ((e && e.message) || e), 'error');
+  }
+}
+
 // ════════════════════════════════════════════════════════════════════════
 // PART 3 — "CONTINUE UNSAVED FORM" on the record picker
 // After a Microsoft sign-in redirect the picker used to offer only "Start
@@ -7788,7 +7909,9 @@ if (typeof _origPickerOpen === 'function') {
         }
       }
     } catch(e){}
-    return _origPickerOpen.apply(this, arguments);
+    const out = await _origPickerOpen.apply(this, arguments);
+    try { await _openPendingRecord(); } catch(e) { console.warn('[Link] open-by-link failed:', e); }
+    return out;
   };
 }
 window.pickerContinueLocal = function(){
